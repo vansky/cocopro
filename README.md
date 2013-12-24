@@ -1,0 +1,4 @@
+cocopro
+=======
+
+Coherent Coreference Project
