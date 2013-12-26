@@ -65,3 +65,23 @@ def munge_c3(c3handle):
         #end of this entity
         #update the annotation with the current entity
         c3annot[entity['id']] = entity  #NB: Do we really want this to be indexed by entity id? What about by span?
+
+def munge_dgb(dgbhandle):
+  #munges dgb into a dictionary (from its native, line-delimited format)
+  indexed_dgb = {} #[segmentid] : (startix,['This','is','the','text.'])
+  dgb = []
+  ix = 1 #index of discourse segment
+  dgblen = 0 #current length of dgb
+  with open(dgbhandle,'r') as dgbFile:
+    for line in dgbFile.readlines():
+      sline = line.strip()
+      if sline == '':
+        #if we find an empty line, skip it (end of sentence)
+        continue
+      #otherwise, add the new text to dgb, and index it
+      addend = sline.split()
+      dgb.append(addend)
+      indexed_dgb[ix] = (dgblen, addend)
+      dgblen += len(addend)
+      ix += 1
+  return dgb,indexed_dgb
