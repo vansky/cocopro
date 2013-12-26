@@ -64,13 +64,18 @@ def munge_c3(c3handle):
       else:
         #end of this entity
         #update the annotation with the current entity
-        c3annot[entity['id']] = entity  #NB: Do we really want this to be indexed by entity id? What about by span?
+        #OPT1: Index entity by head span
+        a,b = entity['head'].split('..')
+        #OPT2: Index entity by span
+        #a,b = entity['span'].split('..')
+        c3annot[int(a),int(b)] = entity
+  return c3annot
 
 def munge_dgb(dgbhandle):
   #munges dgb into a dictionary (from its native, line-delimited format)
   indexed_dgb = {} #[segmentid] : (startix,['This','is','the','text.'])
   dgb = []
-  ix = 1 #index of discourse segment
+  ix = 0 #index of discourse segment
   dgblen = 0 #current length of dgb
   with open(dgbhandle,'r') as dgbFile:
     for line in dgbFile.readlines():
@@ -85,3 +90,47 @@ def munge_dgb(dgbhandle):
       dgblen += len(addend)
       ix += 1
   return dgb,indexed_dgb
+
+def munge_dgb_annot(dgb_annothandle):
+  #munges dgb annotation into a dictionary (from its native, line-delimited format)
+  dgbannot = {} # [startstartgrp,endstartgrp][startendgrp,endendgrp] : coherence_relation
+  with open(dgb_annothandle,'r') as dgbannotFile:
+    for line in dgbannotFile.readlines():
+      sline = line.strip().split()
+      if (int(sline[0]),int(sline[1])) in dgbannot.keys():
+        dgbannot[(int(sline[0]),int(sline[1]))][(int(sline[2]),int(sline[3]))] = sline[4]
+      else:
+        dgbannot[(int(sline[0]),int(sline[1]))] = {(int(sline[2]),int(sline[3])): sline[4]}
+  return dgbannot
+
+def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
+  #aligns the dgb with the dgb and c3 annotations using word spans to index the annotations
+  dgb,indexed_dgb = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.'])
+  dgbannot = munge_dgb_annot(dgb_annothandle) # [startstartgrp,endstartgrp][startendgrp,endendgrp] : coherence_relation
+  c3annot = munge_c3(c3handle) #[startspan,endspan] : coref_entity_info
+
+  #create a dgbannot dict indexed by spans rather than discourse segment ids
+  dgbannotspans = {} # [startstartspan,endstartspan][startendspan,endendspan] : coherence_relation
+  for source in dgbannot.keys():
+    #find the span of the source segments
+    aspanstart = indexed_dgb[source[0]][0]
+    if source[0] == source[1]:
+      #if the start group is the only group, then end the span after this group
+      aspanend = aspanstart + len(indexed_dgb[source[0]][1])
+    else:
+      #otherwise, find the end of the group that ends the span
+      aspanend = indexed_dgb[source[1]][0] + len(indexed_dgb[source[1]][1])
+    for dest in dgbannot[source].keys():
+      bspanstart = indexed_dgb[dest[0]][0]
+      if dest[0] == dest[1]:
+        #if the start group is the only group, then end the span after this group
+        bspanend = bspanstart + len(indexed_dgb[dest[0]][1])
+      else:
+        #otherwise, find the end of the group that ends the span
+        bspanend = indexed_dgb[dest[1]][0] + len(indexed_dgb[dest[1]][1])
+      #create a new dict indexed by spans rather than segment ids
+      if (aspanstart,aspanend) in dgbannotspans.keys():
+        dgbannotspans[aspanstart,aspanend][bspanstart,bspanend] = dgbannot[source][dest]
+      else:
+        dgbannotspans[aspanstart,aspanend] = {(bspanstart,bspanend) : dgbannot[source][dest]}
+        
