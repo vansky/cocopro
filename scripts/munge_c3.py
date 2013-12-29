@@ -21,18 +21,18 @@ c3handle = sys.argv[3]
 def is_entity(line):
   #indicates if the line describes an entity or not
   if entity.match(line):
-    return True
-  return False
+    return(True)
+  return(False)
 
 def is_mention(line):
   #indicates if the line describes a mention or not
   if mention.match(line):
-    return True
-  return False
+    return(True)
+  return(False)
 
 def remove_comment(line):
   #removes html-style comments
-  return comment.sub("",line)
+  return(comment.sub("",line))
 
 def munge_c3_line(line):
   #generates a dict based on a line of c3 xml
@@ -45,7 +45,7 @@ def munge_c3_line(line):
       outdict[sline[0]+'_'+pair[0]] = pair[1].strip('"') #differentiate entity_id from mention_id
     else:
       outdict[pair[0]] = pair[1].strip('"')
-  return outdict
+  return(outdict)
 
 def munge_c3(c3handle):
   #munges c3 annotations into a dictionary (from its native gann xml)
@@ -79,7 +79,7 @@ def munge_c3(c3handle):
         #OPT2: Index entity by span
         #a,b = entity['span'].split('..') #spans only exist for mentions
 #        c3annot[int(a),int(b)] = entity
-  return c3annot
+  return(c3annot)
 
 def munge_dgb(dgbhandle):
   #munges dgb into a dictionary (from its native, line-delimited format)
@@ -101,7 +101,7 @@ def munge_dgb(dgbhandle):
       indexed_dgb[ix] = (dgblen, addend)
       dgblen += len(addend)
       ix += 1
-  return dgb,indexed_dgb,dgb_sentixes
+  return(dgb,indexed_dgb,dgb_sentixes)
 
 def munge_dgb_annot(dgb_annothandle):
   #munges dgb annotation into a dictionary (from its native, line-delimited format)
@@ -113,7 +113,7 @@ def munge_dgb_annot(dgb_annothandle):
         dgbannot[(int(sline[0]),int(sline[1]))][(int(sline[2]),int(sline[3]))] = sline[4]
       else:
         dgbannot[(int(sline[0]),int(sline[1]))] = {(int(sline[2]),int(sline[3])): sline[4]}
-  return dgbannot
+  return(dgbannot)
 
 def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
   #aligns the dgb with the dgb and c3 annotations using word spans to index the annotations
@@ -171,6 +171,7 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
       output_elem = {}
       
       head_span = mention['head'].split('..')
+      head_span = (int(head_span[0]),int(head_span[1]))
       #reftext = dgb[head_span[0]]
       if mention['type'] in ('PRO','WHQ'):
         output_elem['PRO'] = int(True)
@@ -182,7 +183,7 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
           output_elem['COHERENCE'] = dgb_spanlookup[ix-1][2] #record the coherence relation from dgb_annot
           break
       prevsentix = 0
-      referent_ix = entity[mix-1]['head'].split('..')[0] #previous mention's sentence position used as 'referent_id'
+      referent_ix = int(entity['mentions'][mix-1]['head'].split('..')[0]) #previous mention's sentence position used as 'referent_id'
       for sentix in dgb_sentixes:
         if sentix > referent_ix:
           output_elem['ENTITY_ID'] = referent_ix - prevsentix
@@ -190,7 +191,7 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
         prevsentix = sentix
       output_corpus.append(output_elem)
 
-  return output_corpus
+  return(output_corpus)
 
 def build_corpus(dgbhandle,dgb_annothandle,c3handle):
   #builds corpus from co-occurrence counts
