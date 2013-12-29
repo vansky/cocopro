@@ -3,7 +3,7 @@
 #      dgbFile contains the DGB annotation for the segments in textFile
 #      c3File contains the C3 annotation for the segments in textFile
 # collates C3 and DGB annotations
-# output format: TBD
+# output format: ENTITY_ID CONTEXT COHERENCE PRO : 3
 
 from collections import OrderedDict
 import re
@@ -65,7 +65,9 @@ def munge_c3(c3handle):
         continue
       elif is_mention(sline):
         #create a new mention; add mention to the current entity
-        entity['mentions'].append(munge_c3_line(remove_comment(sline).strip()))
+        mention = munge_c3_line(remove_comment(sline).strip())
+        if ',' not in mention['head']: #NB: disregard grouped coref for now; not sure how to deal with it (omits 222 mentions ~ 1% of the data)
+          entity['mentions'].append(mention)
       elif is_entity(sline):
         #create a new entity
         entity = munge_c3_line(sline)
@@ -73,35 +75,45 @@ def munge_c3(c3handle):
       else:
         #end of this entity
         #update the annotation with the current entity
-        c3annot.append(entity) #[entity['entity_id']] = entity
-        #OPT1: Index entity by head span
-#        a,b = entity['head'].split('..') #spans only exist for mentions
-        #OPT2: Index entity by span
-        #a,b = entity['span'].split('..') #spans only exist for mentions
-#        c3annot[int(a),int(b)] = entity
+        if entity['mentions'] != []: #NB: if all mentions were grouped, disregard entity
+          c3annot.append(entity) #[entity['entity_id']] = entity
   return(c3annot)
 
 def munge_dgb(dgbhandle):
   #munges dgb into a dictionary (from its native, line-delimited format)
   indexed_dgb = {} #[segmentid] : (startix,['This','is','the','text.'])
   dgb_sentixes = [0]
+  dgb_charix_to_wordix = OrderedDict() #{charix: wordix}
   dgb = []
   ix = 0 #index of discourse segment
-  dgblen = 0 #current length of dgb
+  dgb_wordlen = 0 #current length of dgb (words)
+  dgb_charlen = 0 #current length of dgb (chars)
   with open(dgbhandle,'r') as dgbFile:
     for line in dgbFile.readlines():
       sline = line.strip()
       if sline == '':
         #if we find an empty line, skip it (end of sentence)
-        dgb_sentixes.append(dgblen)
+        dgb_sentixes.append(dgb_wordlen)
         continue
       #otherwise, add the new text to dgb, and index it
       addend = sline.split()
-      dgb.append(addend)
-      indexed_dgb[ix] = (dgblen, addend)
-      dgblen += len(addend)
+      for wix,word in enumerate(addend):
+        dgb_charix_to_wordix[dgb_charlen] = dgb_wordlen + wix
+        dgb_charlen += len(word)+1 #add the word and the following space to the charlen
+      dgb += addend
+      indexed_dgb[ix] = (dgb_wordlen, addend)
+      dgb_wordlen += len(addend)
       ix += 1
-  return(dgb,indexed_dgb,dgb_sentixes)
+  return(dgb,indexed_dgb,dgb_sentixes,dgb_charix_to_wordix)
+
+def char_to_word(charix,ctwdict):
+  #returns the word associated with the given char index
+  prevkey = 0
+  for c in ctwdict.keys():
+    if c > charix: #we just passed the correct word
+      return ctwdict[prevkey]
+    prevkey = c
+  return ctwdict[prevkey] #must be the final word
 
 def munge_dgb_annot(dgb_annothandle):
   #munges dgb annotation into a dictionary (from its native, line-delimited format)
@@ -117,10 +129,12 @@ def munge_dgb_annot(dgb_annothandle):
 
 def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
   #aligns the dgb with the dgb and c3 annotations using word spans to index the annotations
-  dgb,indexed_dgb,dgb_sentixes = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.'])
+  dgb,indexed_dgb,dgb_sentixes,ctwdict = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.'])
   dgbannot = munge_dgb_annot(dgb_annothandle) # [startstartgrp,endstartgrp][startendgrp,endendgrp] : coherence_relation
   c3annot = munge_c3(c3handle) #[startspan,endspan] : coref_entity_info
 
+#  sys.stderr.write('indexed_dgb: '+str(indexed_dgb)+'\n')
+  
   #create a dgbannot dict indexed by spans rather than discourse segment ids
   dgbannotspans = {} # [startstartspan,endstartspan][startendspan,endendspan] : coherence_relation
   dgb_spanlookup = []
@@ -133,7 +147,7 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
     else:
       #otherwise, find the end of the group that ends the span
       aspanend = indexed_dgb[source[1]][0] + len(indexed_dgb[source[1]][1])
-#    dgb_spanlookup.append( (aspanstart,aspanend) ) #only occurs for cataphora; ignore for now
+    dgb_spanlookup.append( (aspanstart,aspanend) )
 #    if (aspanstart,aspanend) in dgb_spanlookup.keys():
 #      if 'START' not in dgb_spanlookup[aspanstart,aspanend]:
 #        dgb_spanlookup[aspanstart,aspanend].append('START')
@@ -152,45 +166,66 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
         dgbannotspans[aspanstart,aspanend][bspanstart,bspanend] = dgbannot[source][dest]
       else:
         dgbannotspans[aspanstart,aspanend] = {(bspanstart,bspanend) : dgbannot[source][dest]}
-      dgb_spanlookup.append( (bspanstart,bspanend,dgbannot[source][dest]) )
+      dgb_spanlookup.append( (bspanstart,bspanend) )
       #enable reverse lookups from endspans to startspans
 #      if (bspanstart,bspanend) in dgb_spanlookup.keys():
 #        dgb_spanlookup[bspanstart,bspanend].append( (aspanstart,aspanend) )
 #      else:
 #        dgb_spanlookup[bspanstart,bspanend] = [(aspanstart,aspanend)]
 
+#  sys.stderr.write('c3annot: '+str(c3annot)+'\n')
+#  sys.stderr.write('dgbannotspans: '+str(dgbannotspans)+'\n')
   dgb_spanlookup = list(OrderedDict.fromkeys(sorted(dgb_spanlookup))) #sorts all spans and removes duplicates
+#  sys.stderr.write('dgb_spanlookup: '+str(dgb_spanlookup)+'\n')
   
   #create output form
   output_corpus = []
   prev_spanix = -1
   for entity in c3annot:
-    for mix,mention in enumerate(entity['mentions']):
-      if mix == 0: #first mention, so no non-cataphoric pronominalization possible; skip it
-        continue
+    entity_output = [] #collect all mentions' context, etc here; then iterate over those to find which ones have coherence relations with each other
+    for mention in entity['mentions']:
       output_elem = {}
+
+      head_span = char_to_word(int(mention['head'].split('..')[0]),ctwdict) #only care about the first index to the head_span
+#      head_span = (int(head_span[0]),int(head_span[1]))
       
-      head_span = mention['head'].split('..')
-      head_span = (int(head_span[0]),int(head_span[1]))
-      #reftext = dgb[head_span[0]]
       if mention['type'] in ('PRO','WHQ'):
         output_elem['PRO'] = int(True)
       else:
         output_elem['PRO'] = int(False)
       for ix,span in enumerate(dgb_spanlookup):
-        if span[0] > head_span[0]: #just passed target
+        if span[0] > head_span: #just passed target
+          #sys.stderr.write(str(dgb_spanlookup[ix-1][0])+'/'+str(len(dgb))+' :: ')
+          #sys.stderr.write('head_span: '+str(head_span)+' :: span: '+str(dgb_spanlookup[ix-1])+'\n')
           output_elem['CONTEXT'] = dgb[dgb_spanlookup[ix-1][0]] #snag first word of referring segment as context
-          output_elem['COHERENCE'] = dgb_spanlookup[ix-1][2] #record the coherence relation from dgb_annot
+          output_elem['SPAN'] = dgb_spanlookup[ix-1]
           break
+        if ix == len(dgb_spanlookup)-1:
+          #must be in the last span
+          #sys.stderr.write(str(dgb_spanlookup[ix][0])+'/'+str(len(dgb))+' :: ')
+          #sys.stderr.write('head_span: '+str(head_span)+' :: span: '+str(dgb_spanlookup[ix])+'\n')
+          output_elem['CONTEXT'] = dgb[dgb_spanlookup[ix][0]] #snag first word of referring segment as context
+          output_elem['SPAN'] = dgb_spanlookup[ix]
+          break
+          
       prevsentix = 0
-      referent_ix = int(entity['mentions'][mix-1]['head'].split('..')[0]) #previous mention's sentence position used as 'referent_id'
       for sentix in dgb_sentixes:
-        if sentix > referent_ix:
-          output_elem['ENTITY_ID'] = referent_ix - prevsentix
+        if sentix > head_span:
+          output_elem['SENTPOS'] = head_span - prevsentix
           break
         prevsentix = sentix
-      output_corpus.append(output_elem)
-
+      entity_output.append(output_elem)
+    
+    for i,mention_a in enumerate(entity_output):
+      for j,mention_b in enumerate(entity_output):
+        if i == j: #no self relations, so skip
+          continue
+        #find all coherence relations between mentions of this entity and list them as a separate instance
+        if mention_a['SPAN'] in dgbannotspans.keys() and mention_b['SPAN'] in dgbannotspans[mention_a['SPAN']].keys():
+          #there is a coherence relation between mention_a and mention_b, so use mention_b as previous mention (it's a cross-product, so order won't really matter)
+          #previous mention's sentence position used as 'entity_id'
+          output_corpus.append(dict(list(mention_a.items()) + list({'COHERENCE': dgbannotspans[mention_a['SPAN']][mention_b['SPAN']], \
+                                                                      'ENTITY_ID': mention_b['SENTPOS']}.items())))
   return(output_corpus)
 
 def build_corpus(dgbhandle,dgb_annothandle,c3handle):
@@ -200,6 +235,6 @@ def build_corpus(dgbhandle,dgb_annothandle,c3handle):
   for e in corpus:
     counts[e['ENTITY_ID'],e['CONTEXT'],e['COHERENCE'],e['PRO']] = counts.get((e['ENTITY_ID'],e['CONTEXT'],e['COHERENCE'],e['PRO']), 0) + 1
   for c in counts.keys():
-    sys.stdout.write(str(c[0])+' '+c[1]+' '+c[2]+' '+c[3]+' : '+counts[c]+'\n')
+    sys.stdout.write(str(c[0])+' '+str(c[1])+' '+str(c[2])+' '+str(c[3])+' : '+str(counts[c])+'\n')
 
 build_corpus(dgbhandle,dgb_annothandle,c3handle)
