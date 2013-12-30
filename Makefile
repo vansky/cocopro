@@ -48,7 +48,7 @@ WSJHELDOUTSECTS  = 00
 BROWNTRAINSECTS = cf cg ck cl cm cn cp cr
 BNCTRAINDIRS = A B C D E F G H J
 LRSECTS = oerr oer ofr oq rnr se ser
-DGBSECTS = $$(shell seq 135)
+DGBSECTS = $(shell seq 135)
 
 include $(wildcard */*.d)      ## don't comment out, it breaks make!
 
@@ -189,7 +189,9 @@ genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) > $@
 
 .PRECIOUS: genmodel/cocopro.counts
-genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))
+#genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))
+genmodel/cocopro.counts: $(foreach sect,$(DGBSECTS),genmodel/cocopro.1_$(sect).counts)
+	#c3 only exists for annotator_1, so treat that as gold, and we can modify this with annotator_2 later
 	cat $^ > $@
 
 ################################################################################

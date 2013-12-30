@@ -18,6 +18,11 @@ dgbhandle = sys.argv[1]
 dgb_annothandle = sys.argv[2]
 c3handle = sys.argv[3]
 
+def removeNonAscii(s):
+  #Replaces all non-ASCII characters characters with '-'
+  #adapted from a solution given by fortran on StackOverflow
+  return "".join(i if ord(i)<128 else '-' for i in s)
+
 def is_entity(line):
   #indicates if the line describes an entity or not
   if entity.match(line):
@@ -49,7 +54,7 @@ def munge_c3_line(line):
 
 def munge_c3(c3handle):
   #munges c3 annotations into a dictionary (from its native gann xml)
-  c3annot = [] #{}
+  c3annot = []
   entity = {}
   with open(c3handle,'r') as c3File:
     for line in c3File.readlines():
@@ -95,6 +100,9 @@ def munge_dgb(dgbhandle):
         #if we find an empty line, skip it (end of sentence)
         dgb_sentixes.append(dgb_wordlen)
         continue
+      elif dgb != [] and dgb[-1][-1] in '.!?':
+        #save the end of sentence if we're in the middle of a discourse segment when it occurs
+        dgb_sentixes.append(dgb_wordlen)
       #otherwise, add the new text to dgb, and index it
       addend = sline.split()
       for wix,word in enumerate(addend):
@@ -118,9 +126,9 @@ def char_to_word(charix,ctwdict):
 def munge_dgb_annot(dgb_annothandle):
   #munges dgb annotation into a dictionary (from its native, line-delimited format)
   dgbannot = {} # [startstartgrp,endstartgrp][startendgrp,endendgrp] : coherence_relation
-  with open(dgb_annothandle,'r') as dgbannotFile:
+  with open(dgb_annothandle,'r',encoding="latin_1") as dgbannotFile:
     for line in dgbannotFile.readlines():
-      sline = line.strip().split()
+      sline = removeNonAscii(line).strip().split()
       if (int(sline[0]),int(sline[1])) in dgbannot.keys():
         dgbannot[(int(sline[0]),int(sline[1]))][(int(sline[2]),int(sline[3]))] = sline[4]
       else:
@@ -129,17 +137,18 @@ def munge_dgb_annot(dgb_annothandle):
 
 def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
   #aligns the dgb with the dgb and c3 annotations using word spans to index the annotations
-  dgb,indexed_dgb,dgb_sentixes,ctwdict = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.'])
+  dgb,indexed_dgb,dgb_sentixes,ctwdict = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.']) , [sent1,sent2,...],{char_i:word_n,char_j:word_m,...}
   dgbannot = munge_dgb_annot(dgb_annothandle) # [startstartgrp,endstartgrp][startendgrp,endendgrp] : coherence_relation
   c3annot = munge_c3(c3handle) #[startspan,endspan] : coref_entity_info
-
-#  sys.stderr.write('indexed_dgb: '+str(indexed_dgb)+'\n')
   
   #create a dgbannot dict indexed by spans rather than discourse segment ids
   dgbannotspans = {} # [startstartspan,endstartspan][startendspan,endendspan] : coherence_relation
+  last_span = max(indexed_dgb.keys())
   dgb_spanlookup = []
   for source in dgbannot.keys():
-    #find the span of the source segments
+    #find the span of the source segment
+    if source[0] > last_span:
+      source = (last_span,last_span) #account for an annotation fencepost error
     aspanstart = indexed_dgb[source[0]][0]
     if source[0] == source[1]:
       #if the start group is the only group, then end the span after this group
@@ -148,11 +157,7 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
       #otherwise, find the end of the group that ends the span
       aspanend = indexed_dgb[source[1]][0] + len(indexed_dgb[source[1]][1])
     dgb_spanlookup.append( (aspanstart,aspanend) )
-#    if (aspanstart,aspanend) in dgb_spanlookup.keys():
-#      if 'START' not in dgb_spanlookup[aspanstart,aspanend]:
-#        dgb_spanlookup[aspanstart,aspanend].append('START')
-#    else:
-#      dgb_spanlookup[aspanstart,aspanend] = ['START']
+
     for dest in dgbannot[source].keys():
       bspanstart = indexed_dgb[dest[0]][0]
       if dest[0] == dest[1]:
@@ -167,16 +172,8 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
       else:
         dgbannotspans[aspanstart,aspanend] = {(bspanstart,bspanend) : dgbannot[source][dest]}
       dgb_spanlookup.append( (bspanstart,bspanend) )
-      #enable reverse lookups from endspans to startspans
-#      if (bspanstart,bspanend) in dgb_spanlookup.keys():
-#        dgb_spanlookup[bspanstart,bspanend].append( (aspanstart,aspanend) )
-#      else:
-#        dgb_spanlookup[bspanstart,bspanend] = [(aspanstart,aspanend)]
 
-#  sys.stderr.write('c3annot: '+str(c3annot)+'\n')
-#  sys.stderr.write('dgbannotspans: '+str(dgbannotspans)+'\n')
   dgb_spanlookup = list(OrderedDict.fromkeys(sorted(dgb_spanlookup))) #sorts all spans and removes duplicates
-#  sys.stderr.write('dgb_spanlookup: '+str(dgb_spanlookup)+'\n')
   
   #create output form
   output_corpus = []
@@ -186,8 +183,7 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
     for mention in entity['mentions']:
       output_elem = {}
 
-      head_span = char_to_word(int(mention['head'].split('..')[0]),ctwdict) #only care about the first index to the head_span
-#      head_span = (int(head_span[0]),int(head_span[1]))
+      head_span = char_to_word(int(mention['head'].split('..')[0]),ctwdict) #only care about the first index to the head_span rather than the whole span
       
       if mention['type'] in ('PRO','WHQ'):
         output_elem['PRO'] = int(True)
@@ -195,15 +191,11 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
         output_elem['PRO'] = int(False)
       for ix,span in enumerate(dgb_spanlookup):
         if span[0] > head_span: #just passed target
-          #sys.stderr.write(str(dgb_spanlookup[ix-1][0])+'/'+str(len(dgb))+' :: ')
-          #sys.stderr.write('head_span: '+str(head_span)+' :: span: '+str(dgb_spanlookup[ix-1])+'\n')
           output_elem['CONTEXT'] = dgb[dgb_spanlookup[ix-1][0]] #snag first word of referring segment as context
           output_elem['SPAN'] = dgb_spanlookup[ix-1]
           break
         if ix == len(dgb_spanlookup)-1:
           #must be in the last span
-          #sys.stderr.write(str(dgb_spanlookup[ix][0])+'/'+str(len(dgb))+' :: ')
-          #sys.stderr.write('head_span: '+str(head_span)+' :: span: '+str(dgb_spanlookup[ix])+'\n')
           output_elem['CONTEXT'] = dgb[dgb_spanlookup[ix][0]] #snag first word of referring segment as context
           output_elem['SPAN'] = dgb_spanlookup[ix]
           break
@@ -214,8 +206,11 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
           output_elem['SENTPOS'] = head_span - prevsentix
           break
         prevsentix = sentix
+        if sentix == dgb_sentixes[-1]:
+          #must occur on last line of file, so record as in final sentence
+          output_elem['SENTPOS'] = head_span - prevsentix
       entity_output.append(output_elem)
-    
+      
     for i,mention_a in enumerate(entity_output):
       for j,mention_b in enumerate(entity_output):
         if i == j: #no self relations, so skip
