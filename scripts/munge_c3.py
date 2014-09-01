@@ -1,13 +1,37 @@
-#munge_c3.py textFile dgbFile c3File
+#munge_c3.py textFile dgbFile c3File [OPTS] [--output FILE]
 # PRE: textFile is the discourse segmented text found in Discourse GraphBank
 #      dgbFile contains the DGB annotation for the segments in textFile
 #      c3File contains the C3 annotation for the segments in textFile
 # collates C3 and DGB annotations
-# output format: ENTITY_ID CONTEXT COHERENCE PRO : 3
+# OPTS: --output-dgb-raw-text FILE
+#         Saves the dgb raw text to FILE
+#       --output-dgb-sentences FILE
+#         Saves the list of indices of sentence boundaries in dgb to FILE
+#       --output-coherence-spans FILE 
+#         Saves the coherence spans to FILE  #[startstartspan,endstartspan][startendspan,endendspan] : coherence_relation
+#       --output FILE
+#         Saves the entire collated output corpus to FILE
+#         output format: list of dicts with many keys...
+#       --output-compressed FILE
+#         Saves the munged corpus info to FILE
+#         if FILE == '-', write to stdout
+#         output format: ENTITY_ID CONTEXT COHERENCE PRO : COUNT
 
 from collections import OrderedDict
+import pickle
 import re
 import sys
+
+OPTS = {}
+for aix in range(4,len(sys.argv)):
+  if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
+    #filename or malformed arg
+    continue
+  elif aix < len(sys.argv) - 1 and len(sys.argv[aix+1]) > 2 and sys.argv[aix+1][:2] == '--':
+    #missing filename
+    continue
+  OPTS[sys.argv[aix][2:]] = sys.argv[aix+1]
+  
 
 metadata = re.compile('^<\?')
 entity = re.compile('^<entity')
@@ -72,6 +96,7 @@ def munge_c3(c3handle):
         #create a new mention; add mention to the current entity
         mention = munge_c3_line(remove_comment(sline).strip())
         if ',' not in mention['head']: #NB: disregard grouped coref for now; not sure how to deal with it (omits 222 mentions ~ 1% of the data)
+                                       #NB: maybe we could have a tuple for id (ref_sent_ix, ref_grp_ix)
           entity['mentions'].append(mention)
       elif is_entity(sline):
         #create a new entity
@@ -174,6 +199,18 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
       dgb_spanlookup.append( (bspanstart,bspanend) )
 
   dgb_spanlookup = list(OrderedDict.fromkeys(sorted(dgb_spanlookup))) #sorts all spans and removes duplicates
+  if 'output-dgb-raw-text' in OPTS:
+    #Save the dgb raw text to an external file
+    with open(OPTS['output-dgb-raw-text'],'wb') as f:
+      pickle.dump(dgb, f)
+  if 'output-dgb-sentences' in OPTS:
+    #Save the dgb sentence indices to an external file
+    with open(OPTS['output-dgb-sentences'],'wb') as f:
+      pickle.dump(dgb_sentixes,f)
+  if 'output-coherence-spans' in OPTS:
+    #Save the dgb coherence spans to an external file
+    with open(OPTS['output-coherence-spans'],'wb') as f:
+      pickle.dump(dgbannotspans, f)
   
   #create output form
   output_corpus = []
@@ -216,20 +253,33 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
         if i == j: #no self relations, so skip
           continue
         #find all coherence relations between mentions of this entity and list them as a separate instance
-        if mention_a['SPAN'] in dgbannotspans.keys() and mention_b['SPAN'] in dgbannotspans[mention_a['SPAN']].keys():
-          #there is a coherence relation between mention_a and mention_b, so use mention_b as previous mention (it's a cross-product, so order won't really matter)
-          #previous mention's sentence position used as 'entity_id'
-          output_corpus.append(dict(list(mention_a.items()) + list({'COHERENCE': dgbannotspans[mention_a['SPAN']][mention_b['SPAN']], \
-                                                                      'ENTITY_ID': mention_b['SENTPOS']}.items())))
+        if mention_b['SPAN'][0] < mention_a['SPAN'][0]:
+          #we only care about cases where mention_a refers to an antecedent: mention_b
+          if mention_a['SPAN'] in dgbannotspans.keys() and mention_b['SPAN'] in dgbannotspans[mention_a['SPAN']].keys():
+            #there is a coherence relation between mention_a and mention_b, so use mention_b as previous mention
+            #previous mention's sentence position used as 'entity_id'
+            output_corpus.append(dict(list(mention_a.items()) + list({'COHERENCE': dgbannotspans[mention_a['SPAN']][mention_b['SPAN']], \
+                                                                        'ANTECEDENT_SPAN':mention_b['SPAN'], \
+                                                                        'ENTITY_ID': mention_b['SENTPOS']}.items())))
   return(output_corpus)
 
 def build_corpus(dgbhandle,dgb_annothandle,c3handle):
   #builds corpus from co-occurrence counts
   counts = {}
   corpus = collate_annotations(dgbhandle,dgb_annothandle,c3handle)
-  for e in corpus:
-    counts[e['ENTITY_ID'],e['CONTEXT'],e['COHERENCE'],e['PRO']] = counts.get((e['ENTITY_ID'],e['CONTEXT'],e['COHERENCE'],e['PRO']), 0) + 1
-  for c in counts.keys():
-    sys.stdout.write(str(c[0])+' '+str(c[1])+' '+str(c[2])+' '+str(c[3])+' : '+str(counts[c])+'\n')
+  if 'output' in OPTS:
+    with open(OPTS['output'], 'wb') as f:
+      pickle.dump(corpus, f)
+  if 'output-compressed' in OPTS:
+    for e in corpus:
+      counts[e['ENTITY_ID'],e['CONTEXT'],e['COHERENCE'],e['PRO']] = counts.get((e['ENTITY_ID'],e['CONTEXT'],e['COHERENCE'],e['PRO']), 0) + 1
+    #write the compressed munged corpus info to a file
+    if OPTS['output-compressed'] == '-':
+      for c in counts.keys():
+        sys.stdout.write(str(c[0])+' '+str(c[1])+' '+str(c[2])+' '+str(c[3])+' : '+str(counts[c])+'\n')
+    else:
+      with open(OPTS['output-compressed'], 'w') as f:
+        for c in counts.keys():
+          f.write(str(c[0])+' '+str(c[1])+' '+str(c[2])+' '+str(c[3])+' : '+str(counts[c])+'\n')
 
 build_corpus(dgbhandle,dgb_annothandle,c3handle)
