@@ -117,6 +117,14 @@ user-c3-location.txt:
 	@echo 'edit it to point at your c3 repository, and re-run make to continue!'
 	@echo ''
 
+#### location of mallet
+user-mallet-location.txt:
+	echo '/home/compling/mallet-2.0.7' > $@
+	@echo ''
+	@echo 'ATTENTION: I had to create "$@" for you, which may be wrong'
+	@echo 'edit it to point at your mallet repository, and re-run make to continue!'
+	@echo ''
+
 #### location of bnc
 user-bnc-location.txt:
 	echo '/home/corpora/original/english/bnc' > $@
@@ -193,6 +201,23 @@ genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 genmodel/cocopro.counts: $(foreach sect,$(DGBSECTS),genmodel/cocopro.1_$(sect).counts)
 	#c3 only exists for annotator_1, so treat that as gold, and we can modify this with annotator_2 later
 	cat $^ > $@
+
+dgb_data:
+	# This creates a directory of dgb data for mallet to train up a topic model on
+	mkdir dgb_data
+	for i in $(shell ls $(shell cat user-dgb-location.txt)/data/annotator1/* | sed 's/[^ ]* //g;' | grep -v "annotation"); do cp $$i dgb_data/$$(basename $$i); done
+	for i in dgb_data/*; do sed 's/^--//g;' $$i > $$i.txt; rm -f $$i; done
+
+.PRECIOUS: %.mallet
+%.mallet: $(shell cat user-mallet-location.txt)/bin/mallet $(basename $$*)
+	# Although we're modeling stopwords, we don't want them in the topic model since they'll overpower all other cues
+	$< import-dir --input $(word 2,$^) --output $@ --keep-sequence --remove-stopwords
+
+.PRECIOUS: %-topics.gz
+%-topics.gz: $(shell cat user-mallet-location.txt)/bin/mallet $$(word 1,$$(subst -, ,$$(basename $$*))).mallet
+	# Takes a target like dgb_data-20-topics.gz and trains up a topic model on dgb_data with 20 topics
+	# NB: --output-topic-keys and --output-doc-topics are more for exploration than production, so remove them from the final makeflow
+	$< train-topics --input $(word 2,$^) --num-topics $(word 2,$(subst -, ,$(basename $*))) --optimize-interval $(word 2,$(subst -, ,$(basename $*))) --output-state $@ --output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
 
 ################################################################################
 #
