@@ -133,6 +133,14 @@ user-bnc-location.txt:
 	@echo 'edit it to point at your bnc repository, and re-run make to continue!'
 	@echo ''
 
+#### location of tokenizer
+user-tokenizer-location.txt:
+	echo '/home/compling/ptb_tokenizer.sed' > $@
+	@echo ''
+	@echo 'ATTENTION: I had to create "$@" for you, which may be wrong'
+	@echo 'edit it to point at your tokenizer script, and re-run make to continue!'
+	@echo ''
+
 ################################################################################
 #
 #  iv. Code compilation items
@@ -200,12 +208,13 @@ genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
 				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
 				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann \
-				$(shell cat user-mallet-location.txt)/bin/mallet \
-				genmodel/dgb_data-20.topic_model | genmodel
+				$(shell cat user-mallet-location.txt)/bin/mallet | genmodel
 	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-dgb-raw-text $@.raw --output-sentences genmodel/$(basename $$@).sentids --output $@
-	#Munge .topic_model file using $* to find the correct set of lines
-	#progress through until you hit a new file
-	#be sure to check that you are skipping stop words not in the model (or assign them the topic of the preceding word)
+
+.PRECIOUS: genmodel/cocopro.%.topics
+# genmodel/cocopro.dgb_data-20.100.topics
+genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
+	$(PYTHON) $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
 
 .PRECIOUS: genmodel/cocopro.counts
 #genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))
