@@ -199,8 +199,13 @@ genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 .PRECIOUS: genmodel/cocopro.%.corpus
 genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
 				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
-				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann | genmodel
-	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-dgb-raw-text $@.raw --output-sentences $(basename $$@).sentids --output $@
+				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann \
+				$(shell cat user-mallet-location.txt)/bin/mallet \
+				genmodel/dgb_data-20.topic_model | genmodel
+	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-dgb-raw-text $@.raw --output-sentences genmodel/$(basename $$@).sentids --output $@
+	#Munge .topic_model file using $* to find the correct set of lines
+	#progress through until you hit a new file
+	#be sure to check that you are skipping stop words not in the model (or assign them the topic of the preceding word)
 
 .PRECIOUS: genmodel/cocopro.counts
 #genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))
@@ -208,22 +213,23 @@ genmodel/cocopro.counts: $(foreach sect,$(DGBSECTS),genmodel/cocopro.1_$(sect).c
 	#c3 only exists for annotator_1, so treat that as gold, and we can modify this with annotator_2 later
 	cat $^ > $@
 
-dgb_data:
+genmodel/dgb_data: | genmodel
 	# This creates a directory of dgb data for mallet to train up a topic model on
-	mkdir dgb_data
-	for i in $(shell ls $(shell cat user-dgb-location.txt)/data/annotator1/* | sed 's/[^ ]* //g;' | grep -v "annotation"); do cp $$i dgb_data/$$(basename $$i); done
-	for i in dgb_data/*; do sed 's/^--//g;' $$i > $$i.txt; rm -f $$i; done
+	mkdir genmodel/dgb_data
+	for i in $(shell ls $(shell cat user-dgb-location.txt)/data/annotator1/* | sed 's/[^ ]* //g;' | grep -v "annotation"); do cp $$i genmodel/dgb_data/$$(basename $$i); done
+	for i in genmodel/dgb_data/*; do sed 's/^--//g;' $$i > $$i.txt; rm -f $$i; done
 
-.PRECIOUS: %.mallet
-%.mallet: $(shell cat user-mallet-location.txt)/bin/mallet $(basename $$*)
+.PRECIOUS: genmodel/%.mallet
+genmodel/%.mallet: $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$(basename $$*)
 	# Although we're modeling stopwords, we don't want them in the topic model since they'll overpower all other cues
 	$< import-dir --input $(word 2,$^) --output $@ --keep-sequence --remove-stopwords
 
-.PRECIOUS: %-topics.gz
-%-topics.gz: $(shell cat user-mallet-location.txt)/bin/mallet $$(word 1,$$(subst -, ,$$(basename $$*))).mallet
-	# Takes a target like dgb_data-20-topics.gz and trains up a topic model on dgb_data with 20 topics
+.PRECIOUS: genmodel/%.topic_model
+genmodel/%.topic_model: $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$(basename $$*))).mallet
+	# Takes a target like dgb_data-20.topic_model and trains up a topic model on dgb_data with 20 topics
 	# NB: --output-topic-keys and --output-doc-topics are more for exploration than production, so remove them from the final makeflow
-	$< train-topics --input $(word 2,$^) --num-topics $(word 2,$(subst -, ,$(basename $*))) --optimize-interval $(word 2,$(subst -, ,$(basename $*))) --output-state $@ --output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
+	$< train-topics --input $(word 2,$^) --num-topics $(word 2,$(subst -, ,$(basename $*))) --optimize-interval $(word 2,$(subst -, ,$(basename $*))) --output-state $@.gz #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
+	gunzip $@.gz
 
 ################################################################################
 #
