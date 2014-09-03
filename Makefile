@@ -205,16 +205,36 @@ genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-compressed $@
 
 .PRECIOUS: genmodel/cocopro.%.corpus
-genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
+# genmodel/cocopro.1_100.corpus
+genmodel/cocopro.%.corpus genmodel/cocopro.%.sentids: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
 				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
 				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann \
-				$(shell cat user-mallet-location.txt)/bin/mallet | genmodel
-	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-dgb-raw-text $@.raw --output-sentences genmodel/$(basename $$@).sentids --output $@
+				 | genmodel
+	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --output-sentences $(basename $@).sentids --output $(basename $@).corpus
+
+#.PRECIOUS: genmodel/cocopro.%.corpus
+# genmodel/cocopro.dgb_data-20.1_100.corpus
+#genmodel/cocopro.%.corpus: scripts/munge_c3.py \
+#				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$(subst .,,$$(suffix $$*))))/$$(word 2,$$(subst _, ,$$(subst .,,$$(suffix $$*)))) \
+#				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$(subst .,,$$(suffix $$*))))/$$(word 2,$$(subst _, ,$$(subst .,,$$(suffix $$*))))-annotation \
+#				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$(subst .,,$$(suffix $$*)))).gann \
+#				genmodel/cocopro.$$(basename $$*).$$(word 2,$$(subst _, ,$$(suffix $$*))).topics | genmodel
+#	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --topics $(word 5,$^) --output-sentences genmodel/$(basename $$@).sentids --output $@
 
 .PRECIOUS: genmodel/cocopro.%.topics
 # genmodel/cocopro.dgb_data-20.100.topics
 genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
 	$(PYTHON) $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
+
+.PRECIOUS: genmodel/cocopro.%.refcounts
+# genmodel/cocopro.dgb_data-20.100.refcounts
+genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.$$*.topics
+	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 3,$^) --output $@
+
+.PRECIOUS: genmodel/cocopro.%.procounts
+# genmodel/cocopro.dgb_data-20.100.procounts
+genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
+	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
 .PRECIOUS: genmodel/cocopro.counts
 #genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))

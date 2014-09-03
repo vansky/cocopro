@@ -1,11 +1,11 @@
-#munge_c3.py textFile dgbFile c3File [OPTS] [--output FILE]
+#munge_c3.py --text textFile --dgb-annotations dgbFile --c3-annotations c3File [OPTS] [--output FILE]
 # PRE: textFile is the discourse segmented text found in Discourse GraphBank
 #      dgbFile contains the DGB annotation for the segments in textFile
 #      c3File contains the C3 annotation for the segments in textFile
 # collates C3 and DGB annotations
 # OPTS: --output-dgb-raw-text FILE
 #         Saves the dgb raw text to FILE
-#       --output-dgb-sentences FILE
+#       --output-sentences FILE
 #         Saves the list of indices of sentence boundaries in dgb to FILE
 #       --output-coherence-spans FILE 
 #         Saves the coherence spans to FILE  #[startstartspan,endstartspan][startendspan,endendspan] : coherence_relation
@@ -23,7 +23,7 @@ import re
 import sys
 
 OPTS = {}
-for aix in range(4,len(sys.argv)):
+for aix in range(1,len(sys.argv)):
   if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
     #filename or malformed arg
     continue
@@ -38,9 +38,9 @@ entity = re.compile('^<entity')
 mention = re.compile('^<mention')
 comment = re.compile('<!--.*-->')
 
-dgbhandle = sys.argv[1]
-dgb_annothandle = sys.argv[2]
-c3handle = sys.argv[3]
+dgbhandle = OPTS['text']
+dgb_annothandle = OPTS['dgb-annotations']
+c3handle = OPTS['c3-annotations']
 
 def removeNonAscii(s):
   #Replaces all non-ASCII characters characters with '-'
@@ -203,9 +203,9 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
     #Save the dgb raw text to an external file
     with open(OPTS['output-dgb-raw-text'],'wb') as f:
       pickle.dump(dgb, f)
-  if 'output-dgb-sentences' in OPTS:
+  if 'output-sentences' in OPTS:
     #Save the dgb sentence indices to an external file
-    with open(OPTS['output-dgb-sentences'],'wb') as f:
+    with open(OPTS['output-sentences'],'wb') as f:
       pickle.dump(dgb_sentixes,f)
   if 'output-coherence-spans' in OPTS:
     #Save the dgb coherence spans to an external file
