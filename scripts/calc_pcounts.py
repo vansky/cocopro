@@ -64,9 +64,9 @@ for e in coco_corpus:
     pass
   if ref not in full_joint_counts:
     full_joint_counts[ref] = {}
-  full_joint_counts[ref] = full_joint_counts[ref].get(coh,best_topic[0], 0) + 1
-  marginal_counts[coh,best_topic[0]] = marginal_counts.get(coh,best_topic[0], 0) + 1
+  full_joint_counts[ref][coh,best_topic[0]] = full_joint_counts[ref].get((coh,best_topic[0]), 0) + 1
+  marginal_counts[coh,best_topic[0]] = marginal_counts.get((coh,best_topic[0]), 0) + 1
 
 pcounts = {'full_joint': full_joint_counts, 'marginal': marginal_counts}
-with open(OPTS['output'], 'rb') as f:
+with open(OPTS['output'], 'wb') as f:
   pickle.dump(pcounts, f)
