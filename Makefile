@@ -198,11 +198,11 @@ genmodel/bncTRAIN.sents: $(foreach sect,$(BNCTRAINDIRS),genmodel/bnc$(sect).sent
 #
 ################################################################################
 
-.PRECIOUS: genmodel/cocopro.%.counts
-genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
-				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
-				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann | genmodel
-	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-compressed $@
+#.PRECIOUS: genmodel/cocopro.%.counts
+#genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
+#				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
+#				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann | genmodel
+#	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-compressed $@
 
 .PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.1_100.corpus
@@ -236,11 +236,25 @@ genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subs
 genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
 	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
-.PRECIOUS: genmodel/cocopro.counts
+.PRECIOUS: %.model
+# genmodel/cocopro.dgb_data-20.model
+%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),$*.$(sect).refcounts $*.$(sect).procounts)
+	$(PYTHON) $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
+
+.PRECIOUS: %.training_likelihood
+# genmodel/cocopro.dgb_data-20.100.training_likelihood
+%.training_likelihood: scripts/calc_likelihood.py $*.model $(basename $(basename $*)).1_$$(subst .,,$$(suffix $$*)).corpus $*.topics
+	$(PYTHON) $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --output $@
+
+# genmodel/cocopro.dgb_data-20.training_likelihood
+%.training_likelihood: scripts/sum_probs.py $(foreach sect,$(DGBSECTS),$*.$(sect).training_likelihood)
+	$(PYTHON) $^ > $@
+
+#.PRECIOUS: genmodel/cocopro.counts
 #genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))
-genmodel/cocopro.counts: $(foreach sect,$(DGBSECTS),genmodel/cocopro.1_$(sect).counts)
-	#c3 only exists for annotator_1, so treat that as gold, and we can modify this with annotator_2 later
-	cat $^ > $@
+#genmodel/cocopro.counts: $(foreach sect,$(DGBSECTS),genmodel/cocopro.1_$(sect).counts)
+#	#c3 only exists for annotator_1, so treat that as gold, and we can modify this with annotator_2 later
+#	cat $^ > $@
 
 genmodel/dgb_data: | genmodel
 	# This creates a directory of dgb data for mallet to train up a topic model on

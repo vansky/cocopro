@@ -1,8 +1,10 @@
-#scripts/calc_probs.py {--input FILE} --output FILE
+#scripts/calc_logprobs.py {--input FILE} --output FILE
+#computes logprobs based on count data
 # input FILE is a pickled input dict containing counts
 # output FILE is a pickled dictionary of probabilities
 
 from __future__ import division
+import math
 import pickle
 import re
 import sys
@@ -34,13 +36,13 @@ def combine_dicts(global_dict,local_dict):
     return(global_dict)
 
 def compute_probs(cond_counts,marginal_counts):
-    #computes probabilities from conditional and marginal counts
+    #computes log-probabilities from conditional and marginal counts
     prob_dict = {}
     for key in cond_counts:
         if key not in prob_dict:
             prob_dict[key] = {}
         for cond in cond_counts[key]:
-            prob_dict[key][cond] = cond_counts[key][cond] / marginal_counts[cond]
+            prob_dict[key][cond] = math.log(cond_counts[key][cond] / marginal_counts[cond])
     return(prob_dict)
 
 def normalize_probs(count_dict):

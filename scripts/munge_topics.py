@@ -27,7 +27,7 @@ with open(OPTS['model'], 'r') as f:
 textfile = []
 
 with open(OPTS['text'], 'r') as f:
-    textfile = ' '.join(f.readlines()).lower().split() #re.sub('[-.!?`\'"]',' ',' '.join(f.readlines())).lower().split()
+    textfile = ' '.join(f.readlines()).lower().split()
 
 #model format: 0 dgb_data/122.txt 0 0 competition 10
 renums = re.compile('[0-9]+')
@@ -51,16 +51,12 @@ for line in modelfile:
             #...aaaand we've left it behind
             FOUNDFILE = False
             break
-#        try:
         while msline[4] not in ' '.join(re.split('\.|\?|!| |,|-|\'|\d|:|;',textfile[textix])).split():
             #sys.stderr.write(str(msline[4]) + ' ?= ' + str(' '.join(re.split('\.|\?|!| |,|-|\'|\d|:|;',textfile[textix])).split())+'\n')
             if not HYPHENATED:
                 output.append(textfile[textix] + ' -1')
             textix += 1
             HYPHENATED = False
-#        except:
-#            sys.stderr.write("'"+str(msline)+"' : "+str(textix)+'/'+str(len(textfile))+"\n")
-#            raise
         if not HYPHENATED:
             #if the raw word is hyphenated, we only keep the first piece (arbitrary)
             # otherwise we'll have duplicate words and the topic file will get out of sync with the coherence file
