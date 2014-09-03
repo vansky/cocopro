@@ -39,6 +39,7 @@ PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one']
 full_joint_counts = {} # { [item] : { [conditional/marginal] : [counts] } }
 marginal_counts = {} # { [conditional/marginal] : [counts] }
 sent_counts = {} # { [word] : { [topic] : [counts] } }
+coh_counts = {} # { [coh] : [counts] }
 
 #if USE_SENTS: P(ref | coh, top)
 #else: P(pro | ref, coh, top, s_i)
@@ -61,6 +62,7 @@ for e in coco_corpus:
     if t != '-1' and topic_list[t] > best_topic[1]:
       best_topic = [t,topic_list[t]]
   coh = e['COHERENCE']
+  coh_counts[coh] = coh_counts.get(coh, 0) + 1
   if USE_SENTS:
     #sentence portion will go here
     head_begin = e['SPAN'][0]
@@ -99,7 +101,7 @@ if USE_SENTS:
   for t in topics:
     mytopic = get_topic(t)
     topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
-  pcounts.update({'sent': sent_counts, 'topic': topic_counts})
+  pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
 with open(OPTS['output'], 'wb') as f:
-  # full_joint, marginal, [sent, topic]
+  # full_joint, marginal, [sent, topic, coh]
   pickle.dump(pcounts, f)
