@@ -5,7 +5,6 @@
 #      sentences FILE contains a list of the sentence boundary indices from dgb
 #      output FILE designates where to write output; '-' designates stdin
 
-from collections import OrderedDict
 import pickle
 import re
 import sys
@@ -102,4 +101,5 @@ if USE_SENTS:
     topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
   pcounts.update({'sent': sent_counts, 'topic': topic_counts})
 with open(OPTS['output'], 'wb') as f:
+  # full_joint, marginal, [sent, topic]
   pickle.dump(pcounts, f)
