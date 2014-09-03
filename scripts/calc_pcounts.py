@@ -1,5 +1,5 @@
-#align_topics_coref.py --coco-corpus FILE --topics FILE [--sentences FILE] --output FILE
-# aligns topics, coref, and coherence data for probability computations
+#calc_pcounts.py --coco-corpus FILE --topics FILE [--sentences FILE] --output FILE
+# outputs counts from topics, coref, and coherence data for probability computations
 #      coco-corpus FILE is the (pickled) aligned dgb/c3 corpus
 #      topics FILE contains words from the DGB with associated topic assignments
 #      sentences FILE contains a list of the sentence boundary indices from dgb
