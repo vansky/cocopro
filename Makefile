@@ -238,16 +238,16 @@ genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subs
 
 .PRECIOUS: %.model
 # genmodel/cocopro.dgb_data-20.model
-%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),$*.$(sect).refcounts $*.$(sect).procounts)
+%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),%.$(sect).refcounts %.$(sect).procounts)
 	$(PYTHON) $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
 
 .PRECIOUS: %.training_likelihood
 # genmodel/cocopro.dgb_data-20.100.training_likelihood
-%.training_likelihood: scripts/calc_likelihood.py $*.model $(basename $(basename $*)).1_$$(subst .,,$$(suffix $$*)).corpus $*.topics $(basename $(basename $*)).1_$$(subst .,,$$(suffix $$*)).sentids
+%.training_likelihood: scripts/calc_likelihood.py  $$(basename %).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
 	$(PYTHON) $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
 
 # genmodel/cocopro.dgb_data-20.training_likelihood
-%.training_likelihood: scripts/sum_probs.py $(foreach sect,$(DGBSECTS),$*.$(sect).training_likelihood)
+%.training_likelihood: scripts/sum_probs.py $(foreach sect,$(DGBSECTS),%.$(sect).training_likelihood)
 	$(PYTHON) $^ > $@
 
 #.PRECIOUS: genmodel/cocopro.counts

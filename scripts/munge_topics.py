@@ -31,6 +31,7 @@ with open(OPTS['text'], 'r') as f:
 
 #model format: 0 dgb_data/122.txt 0 0 competition 10
 renums = re.compile('[0-9]+')
+rehyph = re.compile('[-/]')
 
 output = []
 FOUNDFILE = False
@@ -51,23 +52,29 @@ for line in modelfile:
             #...aaaand we've left it behind
             FOUNDFILE = False
             break
-        while msline[4] not in ' '.join(re.split('\.|\?|!| |,|-|\'|\d|:|;',textfile[textix])).split():
-            #sys.stderr.write(str(msline[4]) + ' ?= ' + str(' '.join(re.split('\.|\?|!| |,|-|\'|\d|:|;',textfile[textix])).split())+'\n')
-            if not HYPHENATED:
-                output.append(textfile[textix] + ' -1')
-            textix += 1
-            HYPHENATED = False
+        try:
+            while msline[4] not in ' '.join(re.split('@|\^|%|&|\*|\+|=|\[|\]|{|}|\||\\\\|\#|\$|/|\(|\)|\.|\?|!| |"|\`|,|-|\'|\d|:|;|>|<',textfile[textix])).split(): 
+#                sys.stderr.write(str(msline[4]) + ' ?= ' + str(' '.join(re.split('@|\^|%|&|\*|\+|=|\[|\]|{|}|\||\\\\|\#|\$|/|\(|\)|\.|\?|!| |"|\`|,|-|\'|\d|:|;|>|<',textfile[textix])).split())+'\n')
+                if not HYPHENATED:
+                    output.append(textfile[textix] + ' -1')
+                textix += 1
+                HYPHENATED = False
+        except:
+            sys.stderr.write(str(msline)+' '+str(textix) + '/' + str(len(textfile)) +'\n')
+            raise
         if not HYPHENATED:
             #if the raw word is hyphenated, we only keep the first piece (arbitrary)
             # otherwise we'll have duplicate words and the topic file will get out of sync with the coherence file
             output.append(textfile[textix] + ' ' + msline[5])
-        if '-' in textfile[textix]:
+        if rehyph.search(textfile[textix]):
             #if the raw word is hyphenated, we only keep the first piece (arbitrary)
             # otherwise we'll have duplicate words and the topic file will get out of sync with the coherence file
             HYPHENATED = True
             continue
         textix += 1
-        
+while textix < len(textfile):
+    output.append(textfile[textix] + ' -1')
+    textix += 1
 
 if OPTS['output'] == '-':
     sys.stdout.write('\n'.join(output))

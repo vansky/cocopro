@@ -19,7 +19,7 @@ for aix in range(1,len(sys.argv)):
         #missing filename
         continue
     if sys.argv[aix][2:] == 'input':
-        input_names.append(sys.argv[aix][2:])
+        input_names.append(sys.argv[aix+1])
     else:
         OPTS[sys.argv[aix][2:]] = sys.argv[aix+1]
 
@@ -32,7 +32,7 @@ def combine_dicts(global_dict,local_dict):
             for lowkey in local_dict[topkey]:
                 global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
         else:
-            global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey][lowkey]
+            global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
     return(global_dict)
 
 def compute_probs(cond_counts,marginal_counts):
@@ -73,7 +73,7 @@ for fname in input_names:
         jpro_counts = pcounts['full_joint']
         combined_jpro_counts = combine_dicts(combined_jpro_counts,jpro_counts)
         mpro_counts = pcounts['marginal']
-        combined_mpro_counts = combined_dicts(combined_mpro_counts,mpro_counts)
+        combined_mpro_counts = combine_dicts(combined_mpro_counts,mpro_counts)
         
         sent_counts = pcounts['sent']
         combined_sent_counts = combine_dicts(combined_sent_counts,sent_counts)
@@ -85,7 +85,7 @@ for fname in input_names:
         jref_counts = pcounts['full_joint']
         combined_jref_counts = combine_dicts(combined_jref_counts,jref_counts)
         mref_counts = pcounts['marginal']
-        combined_mref_counts = combined_dicts(combined_mref_counts,mref_counts)
+        combined_mref_counts = combine_dicts(combined_mref_counts,mref_counts)
 
 prob_dict = {}
 prob_dict['pro'] = compute_probs(combined_jpro_counts,combined_mpro_counts) #P(pro|ref,coh,topic,sent)
