@@ -39,20 +39,21 @@ def hasInternalPunc(word):
 
 overix = 0 #ctr to track overall position in text
 
-sentbounds = []
+sentbounds = [0]
 
-for line in text:
+NUMLINES = len(text)
+for lix,line in enumerate(text):
   sline = line.strip().split()
   if sline == []:
     sentbounds.append(overix)
     
   for wix,word in enumerate(sline):
-    #if there's non-period punctuation at the end of word OR
+    #if there's non-period punctuation at the end of word (and we're not at the end of the file) OR
       #the word ends with a period AND the word isn't an exception AND the word begins with a capital AND the word has no internal periods
       # we assume sentences can't end with acronyms, which isn't true, but it's what we're assuming for now
-    if repuncendword.search(word) or \
+    if (repuncendword.search(word) and (lix < NUMLINES or wix < len(sline) )) or \
           ( reperiodendword.search(word) and word not in exceptions and wix < len(sline)-1 and recap.match(sline[wix+1]) and not reperiodinword.search(word) ):
-      sentbounds.append(overix + wix)
+      sentbounds.append(overix + wix + 1) #if this is the end of a sentence, the NEXT ix is the beginning of a sentence
   overix += len(sline)
 
 with open(OPTS['output'],'wb') as f:
