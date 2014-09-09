@@ -1,4 +1,4 @@
-#segment_sentences.py --text textFile [OPTS] [--output FILE]
+#segment_sentences.py --text textFile --output FILE [OPTS]
 # PRE: textFile is the discourse segmented text found in Discourse GraphBank
 # outputs a list of sentence boundaries
 # OPTS: --output FILE
@@ -22,7 +22,7 @@ for aix in range(1,len(sys.argv)):
   
 
 reperiodendword = re.compile('[A-Za-z]\.[\'"]*') #find word-final periods
-repuncinword = re.compile('[A-Za-z]\.[A-Za-z]') #find word-internal punc (e.g. acronyms)
+reperiodinword = re.compile('[A-Za-z]\.[A-Za-z]') #find word-internal punc (e.g. acronyms)
 repuncendword = re.compile('[A-Za-z][\?!][\'"]*') #find word-final punc
 recap = re.compile('[A-Z]') #find caps
 
@@ -47,12 +47,11 @@ for line in text:
     sentbounds.append(overix)
     
   for wix,word in enumerate(sline):
-    #if there's punc at the end of word and:
-      #the next word begins with a capital letter OR
-      #not (the current word has internal punc or the current word is an exception)
+    #if there's non-period punctuation at the end of word OR
+      #the word ends with a period AND the word isn't an exception AND the word begins with a capital AND the word has no internal periods
+      # we assume sentences can't end with acronyms, which isn't true, but it's what we're assuming for now
     if repuncendword.search(word) or \
-          reperiodendword and word not in exceptions and ( ( wix < len(sline)-1 and recap.match(sline[wix+1]) in repuncinword ) or \
-                                                              not repuncword.search(word) ):
+          ( reperiodendword.search(word) and word not in exceptions and wix < len(sline)-1 and recap.match(sline[wix+1]) and not reperiodinword.search(word) ):
       sentbounds.append(overix + wix)
   overix += len(sline)
 

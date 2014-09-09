@@ -206,11 +206,15 @@ genmodel/bncTRAIN.sents: $(foreach sect,$(BNCTRAINDIRS),genmodel/bnc$(sect).sent
 
 .PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.1_100.corpus
-genmodel/cocopro.%.corpus genmodel/cocopro.%.sentids: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
+genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
 				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
 				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann \
 				 | genmodel
-	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --output-sentences $(basename $@).sentids --output $(basename $@).corpus
+	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --output $(basename $@).corpus
+
+.PRECIOUS: genmodel/cocopro.%.sentids
+genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
+	$(PYTHON) $< --text $(word 2,$^) --output $@
 
 #.PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.dgb_data-20.1_100.corpus
