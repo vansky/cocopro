@@ -209,8 +209,8 @@ genmodel/bncTRAIN.sents: $(foreach sect,$(BNCTRAINDIRS),genmodel/bnc$(sect).sent
 genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
 				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
 				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann \
-				 | genmodel
-	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --output $(basename $@).corpus
+				$$(basename $$@).sentids | genmodel
+	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --sentences $(word 5,$^) --output $(basename $@).corpus
 
 .PRECIOUS: genmodel/cocopro.%.sentids
 genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))

@@ -1,5 +1,6 @@
-#munge_c3.py --text textFile --dgb-annotations dgbFile --c3-annotations c3File [OPTS] [--output FILE]
+#munge_c3.py --text textFile --sentences sentFile --dgb-annotations dgbFile --c3-annotations c3File [OPTS] [--output FILE]
 # PRE: textFile is the discourse segmented text found in Discourse GraphBank
+#      sentFile contains a pickled list of sentence boundaries (first word of each sentence) in dgb
 #      dgbFile contains the DGB annotation for the segments in textFile
 #      c3File contains the C3 annotation for the segments in textFile
 # collates C3 and DGB annotations
@@ -42,6 +43,11 @@ dgbhandle = OPTS['text']
 dgb_annothandle = OPTS['dgb-annotations']
 c3handle = OPTS['c3-annotations']
 
+PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one', 'who', 'which']
+
+with open(OPTS['sentences'],'rb') as f:
+  dgb_sentixes = pickle.load(f)
+
 def removeNonAscii(s):
   #Replaces all non-ASCII characters characters with '-'
   #adapted from a solution given by fortran on StackOverflow
@@ -62,6 +68,14 @@ def is_mention(line):
 def remove_comment(line):
   #removes html-style comments
   return(comment.sub("",line))
+
+def find_sent(inix, sentlist):
+  old_six = 0
+  for six,sent in enumerate(sentlist):
+    if sent >= inix:
+      return(old_six,sentlist[old_six])
+    old_six = six
+  return(len(sentlist)-1,sentlist[-1])
 
 def munge_c3_line(line):
   #generates a dict based on a line of c3 xml
@@ -112,7 +126,7 @@ def munge_c3(c3handle):
 def munge_dgb(dgbhandle):
   #munges dgb into a dictionary (from its native, line-delimited format)
   indexed_dgb = {} #[segmentid] : (startix,['This','is','the','text.'])
-  dgb_sentixes = [0]
+#  dgb_sentixes = [0]
   dgb_charix_to_wordix = OrderedDict() #{charix: wordix}
   dgb = []
   ix = 0 #index of discourse segment
@@ -123,11 +137,11 @@ def munge_dgb(dgbhandle):
       sline = line.strip()
       if sline == '':
         #if we find an empty line, skip it (end of sentence)
-        dgb_sentixes.append(dgb_wordlen)
+#        dgb_sentixes.append(dgb_wordlen)
         continue
-      elif dgb != [] and dgb[-1][-1] in '.!?':
+#      elif dgb != [] and dgb[-1][-1] in '.!?':
         #save the end of sentence if we're in the middle of a discourse segment when it occurs
-        dgb_sentixes.append(dgb_wordlen)
+#        dgb_sentixes.append(dgb_wordlen)
       #otherwise, add the new text to dgb, and index it
       addend = sline.split()
       for wix,word in enumerate(addend):
@@ -137,7 +151,8 @@ def munge_dgb(dgbhandle):
       indexed_dgb[ix] = (dgb_wordlen, addend)
       dgb_wordlen += len(addend)
       ix += 1
-  return(dgb,indexed_dgb,dgb_sentixes,dgb_charix_to_wordix)
+#  return(dgb,indexed_dgb,dgb_sentixes,dgb_charix_to_wordix)
+  return(dgb,indexed_dgb,dgb_charix_to_wordix)
 
 def char_to_word(charix,ctwdict):
   #returns the word associated with the given char index
@@ -162,7 +177,8 @@ def munge_dgb_annot(dgb_annothandle):
 
 def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
   #aligns the dgb with the dgb and c3 annotations using word spans to index the annotations
-  dgb,indexed_dgb,dgb_sentixes,ctwdict = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.']) , [sent1,sent2,...],{char_i:word_n,char_j:word_m,...}
+  #dgb,indexed_dgb,dgb_sentixes,ctwdict = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.']) , [sent1,sent2,...],{char_i:word_n,char_j:word_m,...}
+  dgb,indexed_dgb,ctwdict = munge_dgb(dgbhandle) #['This','is','the','text.'] , [segmentid] : (startix,['This','is','the','text.']),{char_i:word_n,char_j:word_m,...}
   dgbannot = munge_dgb_annot(dgb_annothandle) # [startstartgrp,endstartgrp][startendgrp,endendgrp] : coherence_relation
   c3annot = munge_c3(c3handle) #[startspan,endspan] : coref_entity_info
   
@@ -222,7 +238,8 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
 
       head_span = char_to_word(int(mention['head'].split('..')[0]),ctwdict) #only care about the first index to the head_span rather than the whole span
       
-      if mention['type'] in ('PRO','WHQ'):
+      #if mention['type'] in ('PRO','WHQ'):
+      if dgb[head_span] in PRONOUNS:
         output_elem['PRO'] = int(True)
       else:
         output_elem['PRO'] = int(False)
