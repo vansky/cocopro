@@ -232,13 +232,13 @@ genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).top
 
 .PRECIOUS: genmodel/cocopro.%.refcounts
 # genmodel/cocopro.dgb_data-20.100.refcounts
-genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.$$*.topics
-	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 3,$^) --output $@
+genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
+	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
 .PRECIOUS: genmodel/cocopro.%.procounts
 # genmodel/cocopro.dgb_data-20.100.procounts
 genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
-	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
+	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --use-sents --output $@
 
 .PRECIOUS: %.model
 # genmodel/cocopro.dgb_data-20.model
