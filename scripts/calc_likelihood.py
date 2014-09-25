@@ -58,9 +58,10 @@ for e in corpus:
   ref = e['ENTITY_ID']
   topic_list = {}
   for tix in range(e['SPAN'][0],e['SPAN'][1]):
+    #determine the topic of the head
+    #NB: for now, we'll have the topics vote first past the post, but we may want to allow proportional topic assignments in the future
     my_topic = get_topic(topics[tix])
     topic_list[my_topic] = topic_list.get(my_topic, 0) + 1
-  #NB: for now, we'll have the topics vote first past the post, but we may want to allow proportional topic assignments in the future
   #sentence context
   head_begin = e['SPAN'][0]
   next_sent = 0
