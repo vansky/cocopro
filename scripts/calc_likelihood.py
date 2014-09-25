@@ -123,6 +123,8 @@ for e in corpus:
   try:
     likelihood += model['pro'][pro][ref,coh,best_topic[0],sent_info]
   except:
+    sys.stderr.write('PROBLEM!\n')
+    sys.stderr.write(str(model['pro'][pro].keys())+'\n')
     output = []
     for i in range(thissent[1],sentlist[thissent[0]+1]): #head_begin - e['SENTPOS'],next_sent):
       output.append(topics[i].split()[0])
