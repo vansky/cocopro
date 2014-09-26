@@ -103,7 +103,7 @@ for e in coco_corpus:
     # Also assume that topic-associated word is a better cue to context than the preceding words
     sent_info = topics[head_begin - e['SENTPOS'] + ctr].split()[0]
     sent_topic = topics[head_begin - e['SENTPOS'] + ctr].split()[1]
-  ctr += 1
+    ctr += 1
 
   best_topic = ['-1',0]
   for t in topic_list:
