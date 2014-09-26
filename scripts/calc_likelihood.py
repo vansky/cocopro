@@ -60,6 +60,10 @@ for e in corpus:
   for tix in range(e['SPAN'][0],e['SPAN'][1]):
     #determine the topic of the head
     #NB: for now, we'll have the topics vote first past the post, but we may want to allow proportional topic assignments in the future
+    if tix >=len(topics):
+      #NB: total hack to get by an issue where section 95 of c3 indexes beyond the end of the file... (possibly introduced during munging c3?)
+      sys.stderr.write('span: '+str(e['SPAN'][0])+':'+str(e['SPAN'][1])+ 'in'+ str(len(topics))+'\n')
+      break
     my_topic = get_topic(topics[tix])
     topic_list[my_topic] = topic_list.get(my_topic, 0) + 1
   #sentence context
@@ -80,11 +84,11 @@ for e in corpus:
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
 
   ### DEBUG
-  output = []
-  thissent = find_sent(head_begin,sentlist)
-  for i in range(max(0,thissent[1]-3),sentlist[thissent[0]+1]):#head_begin - e['SENTPOS'],next_sent):
-      output.append(topics[i].split()[0])
-  sys.stderr.write(' '.join(output)+'\n')
+#  output = []
+#  thissent = find_sent(head_begin,sentlist)
+#  for i in range(max(0,thissent[1]-3),sentlist[thissent[0]+1]):#head_begin - e['SENTPOS'],next_sent):
+#      output.append(topics[i].split()[0])
+#  sys.stderr.write(' '.join(output)+'\n')
   ### /DEBUG
 
   ctr = 1
@@ -124,18 +128,20 @@ for e in corpus:
   try:
     likelihood += model['pro'][pro][ref,coh,best_topic[0],sent_info]
   except:
-    sys.stderr.write('PROBLEM!\n')
-    sys.stderr.write(str(model['pro'][pro].keys())+'\n')
-    output = []
-    for i in range(thissent[1],sentlist[thissent[0]+1]): #head_begin - e['SENTPOS'],next_sent):
-      output.append(topics[i].split()[0])
-    sys.stderr.write(' '.join(output)+'\n')
-    raise
+    sys.stderr.write('Likelihood key error! '+sys.argv[1]+' skipping datapoint\n')
+    #sys.stderr.write(str(model['pro'][pro].keys())+'\n')
+#    output = []
+#    for i in range(thissent[1],sentlist[thissent[0]+1]): #head_begin - e['SENTPOS'],next_sent):
+#      output.append(topics[i].split()[0])
+#    sys.stderr.write(' '.join(output)+'\n')
+    continue
+#    raise
   likelihood += model['ref'][ref][coh,best_topic[0]]
   likelihood += model['coh'][coh]
   likelihood += model['topic'][best_topic[0]]
   likelihood += model['sent'][sent_info][sent_topic]
   likelihood += model['topic'][sent_topic]
+  sys.stderr.write('Success!\n')
   
 with open(OPTS['output'], 'w') as f:
   f.write(str(likelihood)+'\n')
