@@ -202,7 +202,7 @@ genmodel/bncTRAIN.sents: $(foreach sect,$(BNCTRAINDIRS),genmodel/bnc$(sect).sent
 #genmodel/cocopro.%.counts: scripts/munge_c3.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*)) \
 #				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
 #				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann | genmodel
-#	$(PYTHON) $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-compressed $@
+#	python3 $< $(word 2,$^) $(word 3,$^) $(word 4,$^) --output-compressed $@
 
 .PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.1_100.corpus
@@ -210,11 +210,11 @@ genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))-annotation \
 				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$*)).gann \
 				$$(basename $$@).sentids | genmodel
-	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --sentences $(word 5,$^) --output $(basename $@).corpus
+	python3 $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --sentences $(word 5,$^) --output $(basename $@).corpus
 
 .PRECIOUS: genmodel/cocopro.%.sentids
 genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
-	$(PYTHON) $< --text $(word 2,$^) --output $@
+	python3 $< --text $(word 2,$^) --output $@
 
 #.PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.dgb_data-20.1_100.corpus
@@ -223,36 +223,50 @@ genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-lo
 #				$(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$(subst .,,$$(suffix $$*))))/$$(word 2,$$(subst _, ,$$(subst .,,$$(suffix $$*))))-annotation \
 #				$(shell cat user-c3-location.txt)/$$(word 2,$$(subst _, ,$$(subst .,,$$(suffix $$*)))).gann \
 #				genmodel/cocopro.$$(basename $$*).$$(word 2,$$(subst _, ,$$(suffix $$*))).topics | genmodel
-#	$(PYTHON) $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --topics $(word 5,$^) --output-sentences genmodel/$(basename $$@).sentids --output $@
+#	python3 $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --topics $(word 5,$^) --output-sentences genmodel/$(basename $$@).sentids --output $@
 
 .PRECIOUS: genmodel/cocopro.%.topics
 # genmodel/cocopro.dgb_data-20.100.topics
-genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
-	$(PYTHON) $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
+genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$(basename $$*))).mallet genmodel/$$(basename $$*).topic_inferencer scripts/munge_doctopics.py
+	#scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
+	#Need to split at carriage returns since the corpus was apparently created with Windows, so ^$ fails
+	mkdir tmpwork
+	mkdir $(subst .,,$(suffix $*))
+	csplit --prefix=$(subst .,,$(suffix $*))/ --quiet genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt $'/^\r/' '{*}'
+	$(word 2,$^) import-dir --input $(subst .,,$(suffix $*)) --output tmpwork/$(subst .,,$(suffix $(basename $*)))$(suffix $*).mallet --keep-sequence --remove-stopwords --use-pipe-from $(word 3,$^)
+	$(word 2,$^) infer-topics --input tmpwork/$(subst .,,$(suffix $(basename $*)))$(suffix $*).mallet --inferencer $(word 4,$^) --output-doc-topics $(basename $@).doctopics
+	python3 $(word 5,$^) $(basename $@).doctopics > $@
+	rm -rf tmpwork $(subst .,,$(suffix $*))
+	#python3 $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
+
+#.PRECIOUS: genmodel/cocopro.%.topics
+# genmodel/cocopro.dgb_data-20.100.topics
+#genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
+#	python3 $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
 
 .PRECIOUS: genmodel/cocopro.%.refcounts
 # genmodel/cocopro.dgb_data-20.100.refcounts
 genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
-	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
+	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
 .PRECIOUS: genmodel/cocopro.%.procounts
 # genmodel/cocopro.dgb_data-20.100.procounts
 genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
-	$(PYTHON) $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --use-sents --output $@
+	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --use-sents --output $@
 
 .PRECIOUS: %.model
 # genmodel/cocopro.dgb_data-20.model
 %.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),%.$(sect).refcounts %.$(sect).procounts)
-	$(PYTHON) $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
+	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
 
 .PRECIOUS: %.training_likelihood
 # genmodel/cocopro.dgb_data-20.100.training_likelihood
 %.training_likelihood: scripts/calc_likelihood.py  $$(basename %).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
-	$(PYTHON) $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
+	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
 
 # genmodel/cocopro.dgb_data-20.training_likelihood
 %.training_likelihood: scripts/sum_probs.py $(foreach sect,$(DGBSECTS),%.$(sect).training_likelihood)
-	$(PYTHON) $^ > $@
+	python3 $^ > $@
 
 #.PRECIOUS: genmodel/cocopro.counts
 #genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))
@@ -267,16 +281,21 @@ genmodel/dgb_data: | genmodel
 	for i in genmodel/dgb_data/*; do sed 's/^--//g;' $$i > $$i.txt; rm -f $$i; done
 
 .PRECIOUS: genmodel/%.mallet
+#genmodel/dgb_data.mallet
 genmodel/%.mallet: $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$(basename $$*)
 	# Although we're modeling stopwords, we don't want them in the topic model since they'll overpower all other cues
 	$< import-dir --input $(word 2,$^) --output $@ --keep-sequence --remove-stopwords
 
 .PRECIOUS: genmodel/%.topic_model
-genmodel/%.topic_model: $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$(basename $$*))).mallet
+.PRECIOUS: genmodel/%.topic_inferencer
+#genmodel/dgb_data-20.topic_model
+genmodel/%.topic_model genmodel/%.topic_inferencer: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$*)).mallet
 	# Takes a target like dgb_data-20.topic_model and trains up a topic model on dgb_data with 20 topics
 	# NB: --output-topic-keys and --output-doc-topics are more for exploration than production, so remove them from the final makeflow
-	$< train-topics --input $(word 2,$^) --num-topics $(word 2,$(subst -, ,$(basename $*))) --optimize-interval $(word 2,$(subst -, ,$(basename $*))) --output-state $@.gz #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
-	gunzip $@.gz
+	$(word 2,$^) train-topics --input $(word 3,$^) --num-topics $(word 2,$(subst -, ,$*)) --optimize-interval $(word 2,$(subst -, ,$*)) --output-state genmodel/$*.topic_model.gz --inferencer-filename genmodel/$*.topic_inferencer  #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
+	gunzip genmodel/$*.topic_model.gz
+
+
 
 ################################################################################
 #
