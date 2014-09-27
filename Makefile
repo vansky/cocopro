@@ -228,16 +228,14 @@ genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-lo
 .PRECIOUS: genmodel/cocopro.%.topics
 # genmodel/cocopro.dgb_data-20.100.topics
 genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$(basename $$*))).mallet genmodel/$$(basename $$*).topic_inferencer scripts/munge_doctopics.py
-	#scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
-	#Need to split at carriage returns since the corpus was apparently created with Windows, so ^$ fails
 	mkdir tmpwork
 	mkdir $(subst .,,$(suffix $*))
+	#Need to split at carriage returns since the corpus was apparently created with Windows, so ^$ fails
 	csplit --prefix=$(subst .,,$(suffix $*))/ --quiet genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt $$'/^\r/' '{*}'
-	$(word 2,$^) import-dir --input $(subst .,,$(suffix $*)) --output tmpwork/$(subst .,,$(suffix $(basename $*)))$(suffix $*).mallet --keep-sequence --remove-stopwords --use-pipe-from $(word 3,$^)
-	$(word 2,$^) infer-topics --input tmpwork/$(subst .,,$(suffix $(basename $*)))$(suffix $*).mallet --inferencer $(word 4,$^) --output-doc-topics $(basename $@).doctopics
-	python3 $(word 5,$^) $(basename $@).doctopics > $@
+	$(word 2,$^) import-dir --input $(subst .,,$(suffix $*)) --output tmpwork/$(subst .,,$(suffix $*)).mallet --keep-sequence --remove-stopwords --use-pipe-from $(word 3,$^)
+	$(word 2,$^) infer-topics --input tmpwork/$(subst .,,$(suffix $*)).mallet --inferencer $(word 4,$^) --output-doc-topics $(basename $@).doctopics
+	python3 $(word 5,$^) --model $(basename $@).doctopics --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --output $@
 	rm -rf tmpwork $(subst .,,$(suffix $*))
-	#python3 $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
 
 #.PRECIOUS: genmodel/cocopro.%.topics
 # genmodel/cocopro.dgb_data-20.100.topics
@@ -286,14 +284,13 @@ genmodel/%.mallet: $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$(b
 	# Although we're modeling stopwords, we don't want them in the topic model since they'll overpower all other cues
 	$< import-dir --input $(word 2,$^) --output $@ --keep-sequence --remove-stopwords
 
-.PRECIOUS: genmodel/%.topic_model
+
 .PRECIOUS: genmodel/%.topic_inferencer
-#genmodel/dgb_data-20.topic_model
-genmodel/%.topic_model genmodel/%.topic_inferencer: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$*)).mallet
+#genmodel/dgb_data-20.topic_inferencer
+genmodel/%.topic_inferencer: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$*)).mallet
 	# Takes a target like dgb_data-20.topic_model and trains up a topic model on dgb_data with 20 topics
 	# NB: --output-topic-keys and --output-doc-topics are more for exploration than production, so remove them from the final makeflow
 	$(word 2,$^) train-topics --input $(word 3,$^) --num-topics $(word 2,$(subst -, ,$*)) --optimize-interval $(word 2,$(subst -, ,$*)) --output-state genmodel/$*.topic_model.gz --inferencer-filename genmodel/$*.topic_inferencer  #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
-	gunzip genmodel/$*.topic_model.gz
 
 
 

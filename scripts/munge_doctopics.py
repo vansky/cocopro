@@ -1,15 +1,9 @@
-#python munge_doctopics.py --model FILE --text FILE --filenum NUM --output FILE
+#python munge_doctopics.py --model FILE --text FILE --output FILE
 # munges Mallet output-doc-topics file into a space-delimited file with one word/topic pair per line
-
-raise #haven't completed beyond this point yet; just a placeholder file to check the make pipeline
-# Note: atopical stopwords are assigned a topic of -1
-#
-# --model FILE is a pre-trained topic model
+# --model FILE is an inferred topic model using mallet's  pre-trained topic model
 # --text FILE is a file of raw text to sync the topic assignments with
-# --filenum NUM is the id of the file associated with the topics of interest
 # --output FILE is the file to output the completed topic list
 
-import re
 import sys
 
 OPTS = {}
@@ -22,64 +16,34 @@ for aix in range(1,len(sys.argv)):
         continue
     OPTS[sys.argv[aix][2:]] = sys.argv[aix+1]
 
-modelfile = []
+model = {}
 with open(OPTS['model'], 'r') as f:
-    modelfile = f.readlines()
-
-textfile = []
-
-with open(OPTS['text'], 'r') as f:
-    textfile = ' '.join(f.readlines()).lower().split()
-
-#model format: 0 dgb_data/122.txt 0 0 competition 10
-renums = re.compile('[0-9]+')
-rehyph = re.compile('[-/]')
-
+   for line in f.readlines():
+       if line[0] == '#':
+           #comment
+           continue
+       sline = line.strip().split()
+       key = int(sline[1].split('/')[1]) #key is the discourse chunk of textFile
+       model[ key ] = []
+       for i in range(2,len(sline),2):
+           model[key].append( (sline[i], float(sline[i+1])) ) #[ (topic,wt) , ... ]
+    
 output = []
-FOUNDFILE = False
-textix = 0
-HYPHENATED = False
-for line in modelfile:
-    if line[0] == '#': #ignore comment lines
-        continue
-    msline = line.strip().split()
-    if not FOUNDFILE:
-        #haven't found the correct section of the topic model yet
-        if renums.search(msline[1]).group(0) == OPTS['filenum']:
-            #now we have!
-            FOUNDFILE = True
-    if FOUNDFILE:
-        #we've found the correct section of the topic model
-        if renums.search(msline[1]).group(0) != OPTS['filenum']:
-            #...aaaand we've left it behind
-            FOUNDFILE = False
-            break
-        try:
-            while msline[4] not in ' '.join(re.split('@|\^|%|&|\*|\+|=|\[|\]|{|}|\||\\\\|\#|\$|/|\(|\)|\.|\?|!| |"|\`|,|-|\'|\d|:|;|>|<',textfile[textix])).split(): 
-#                sys.stderr.write(str(msline[4]) + ' ?= ' + str(' '.join(re.split('@|\^|%|&|\*|\+|=|\[|\]|{|}|\||\\\\|\#|\$|/|\(|\)|\.|\?|!| |"|\`|,|-|\'|\d|:|;|>|<',textfile[textix])).split())+'\n')
-                if not HYPHENATED:
-                    output.append(textfile[textix] + ' -1')
-                textix += 1
-                HYPHENATED = False
-        except:
-            sys.stderr.write(str(msline)+' '+str(textix) + '/' + str(len(textfile)) +'\n')
-            raise
-        if not HYPHENATED:
-            #if the raw word is hyphenated, we only keep the first piece (arbitrary)
-            # otherwise we'll have duplicate words and the topic file will get out of sync with the coherence file
-            output.append(textfile[textix] + ' ' + msline[5])
-        if rehyph.search(textfile[textix]):
-            #if the raw word is hyphenated, we only keep the first piece (arbitrary)
-            # otherwise we'll have duplicate words and the topic file will get out of sync with the coherence file
-            HYPHENATED = True
+discourse_ix = 0
+with open(OPTS['text'], 'r') as f:
+    for line in f.readlines(): #' '.join(f.readlines()).lower().split()
+        sline = line.strip().split()
+        if sline == []:
+            #end of a discourse segment, so start the next
+            discourse_ix += 1
             continue
-        textix += 1
-while textix < len(textfile):
-    output.append(textfile[textix] + ' -1')
-    textix += 1
+        for word in sline:
+            output.append( (word, model[discourse_ix]) )
 
-if OPTS['output'] == '-':
-    sys.stdout.write('\n'.join(output))
-else:
-    with open(OPTS['output'], 'w') as f:
-        f.write('\n'.join(output))
+
+with open(OPTS['output'], 'w') as f:
+    for w in output:
+        #currently assumes the *best* topic is the *only* topic
+        #NB: Later, we may want to see what happens if we use proportional representation
+        #w = (word, [(topic, wt), (topic, wt), ...])
+        f.write(w[0]+' '+w[1][0][0]+'\n')
