@@ -232,7 +232,7 @@ genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-loca
 	#Need to split at carriage returns since the corpus was apparently created with Windows, so ^$ fails
 	mkdir tmpwork
 	mkdir $(subst .,,$(suffix $*))
-	csplit --prefix=$(subst .,,$(suffix $*))/ --quiet genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt $'/^\r/' '{*}'
+	csplit --prefix=$(subst .,,$(suffix $*))/ --quiet genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt $$'/^\r/' '{*}'
 	$(word 2,$^) import-dir --input $(subst .,,$(suffix $*)) --output tmpwork/$(subst .,,$(suffix $(basename $*)))$(suffix $*).mallet --keep-sequence --remove-stopwords --use-pipe-from $(word 3,$^)
 	$(word 2,$^) infer-topics --input tmpwork/$(subst .,,$(suffix $(basename $*)))$(suffix $*).mallet --inferencer $(word 4,$^) --output-doc-topics $(basename $@).doctopics
 	python3 $(word 5,$^) $(basename $@).doctopics > $@
