@@ -290,7 +290,7 @@ genmodel/%.mallet: $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$(b
 genmodel/%.topic_inferencer: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$*)).mallet
 	# Takes a target like dgb_data-20.topic_model and trains up a topic model on dgb_data with 20 topics
 	# NB: --output-topic-keys and --output-doc-topics are more for exploration than production, so remove them from the final makeflow
-	$(word 2,$^) train-topics --input $(word 3,$^) --num-topics $(word 2,$(subst -, ,$*)) --optimize-interval $(word 2,$(subst -, ,$*)) --output-state genmodel/$*.topic_model.gz --inferencer-filename genmodel/$*.topic_inferencer  #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
+	$(word 2,$^) train-topics --input $(word 3,$^) --num-topics $(word 2,$(subst -, ,$*)) --optimize-interval $(word 2,$(subst -, ,$*)) --output-state genmodel/$*.topic_model.gz --inferencer-filename genmodel/$*.topic_inferencer  --random-seed 37 #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
 
 
 

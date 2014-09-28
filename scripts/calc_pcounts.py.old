@@ -38,7 +38,7 @@ with open(OPTS['sentences'], 'rb') as f:
   sentlist = pickle.load(f)
 
 PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one']
-prob_counts = {} # { [item] : { [conditional/marginal] : [counts] } }
+full_joint_counts = {} # { [item] : { [conditional/marginal] : [counts] } }
 marginal_counts = {} # { [conditional/marginal] : [counts] }
 sent_counts = {} # { [word] : { [topic] : [counts] } }
 coh_counts = {} # { [coh] : [counts] }
@@ -123,63 +123,30 @@ for e in coco_corpus:
 #    #if there's no valid topic in this sentence, then I'm not sure we have much to go on; throw out this datapoint;
 #    sys.stderr.write("Couldn't find a valid topic assignment... skipping datapoint.\n")
 #    continue
-
-  #binary pro
-  pro = str(topics[head_begin].split()[0] in PRONOUNS) #possible: 'True', 'False'
-  if ref not in pro_from_ref:
-    pro_from_ref[ref] = {'True':0.5, 'False':0.5}
-  pro_from_ref[ref][pro] += 1
-  if coh not in pro_from_coh:
-    pro_from_coh[coh] = {'True':0.5, 'False':0.5}
-  pro_from_coh[coh][pro] += 1
-  if top not in pro_from_top:
-    pro_from_top[top] = {'True':0.5, 'False':0.5}
-  pro_from_top[top][pro] += 1
-  if sent not in pro_from_sent:
-    pro_from_sent[sent] = {'True':0.5, 'False':0.5}
-  pro_from_sent[sent][pro] += 1
-
-  #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
-  POSS_REFS = 20
-  if coh not in ref_from_coh: #NB: possible...? say range(20)?
-    ref_from_coh[coh] = {}
-    for i in range(POSS_REFS):
-      ref_from_coh[coh][i] = 1.0/POSS_REFS #i might need to be cast as string
-  ref_from_coh[coh][ref] += 1
-  if top not in ref_from_top:
-    ref_from_top[top] = {}
-    for i in range(POSS_REFS):
-      ref_from_top[top][i] = 1.0/POSS_REFS #i might need to be cast as string
-  ref_from_top[top][ref] += 1
-
-  sent_info_prior = 1.0/1000
-  if sent_topic not in s_from_top: #NB: possible...? no idea, so let's say 1/1000?
-    s_from_top[sent_topic] = {'-1': sent_info_prior}
-  #NB: For now, sentences are generated from just topics (not coherence)
-  s_from_top[sent_topic][sent_info] = s_from_top[sent_topic].get(sent_info, sent_info_prior) + 1
   
-  if sent_info not in sent_counts:
-    sent_counts[sent_info] = {}
-  sent_counts[sent_info] = sent_counts.get(sent_info, sent_info_prior) + 1
-  ###    
-  #flat multinomial pro
-  #for pro in PRONOUNS+['other']:
-  ###
-  #hierarchic multinomial pro
-  #for class in PROCLASSES.keys():
-  #  for pro in PROCLASSES['class']:
-  #  #pro='other' case
-    
-pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent,\
-             'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
-             's_from_top':s_from_top}
-topic_counts = {}
-for t in topics:
-  mytopic = get_topic(t)
-  topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
-pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
+  if USE_SENTS:
+    pro = topics[head_begin].split()[0] in PRONOUNS
+    if pro not in full_joint_counts:
+      full_joint_counts[pro] = {}
+    full_joint_counts[pro][ref,coh,sent_topic,sent_info] = full_joint_counts[pro].get((ref,coh,sent_topic,sent_info), 0) + 1
+    marginal_counts[ref,coh,sent_topic,sent_info] = marginal_counts.get((ref,coh,sent_topic,sent_info), 0) + 1
+    if sent_info not in sent_counts:
+      sent_counts[sent_info] = {}
+    #NB: For now, sentences are generated from just topics (not coherence)
+    sent_counts[sent_info][sent_topic] = sent_counts[sent_info].get(sent_topic, 0) + 1
+  else:
+    if ref not in full_joint_counts:
+      full_joint_counts[ref] = {}
+    full_joint_counts[ref][coh,sent_topic] = full_joint_counts[ref].get((coh,sent_topic), 0) + 1
+    marginal_counts[coh,sent_topic] = marginal_counts.get((coh,sent_topic), 0) + 1
+
+pcounts = {'full_joint': full_joint_counts, 'marginal': marginal_counts}
+if USE_SENTS:
+  topic_counts = {}
+  for t in topics:
+    mytopic = get_topic(t)
+    topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
+  pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
 with open(OPTS['output'], 'wb') as f:
-  # pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent,
-  # ref_from_coh, ref_from_top, s_from_top,
-  # sent, topic, coh
+  # full_joint, marginal, [sent, topic, coh]
   pickle.dump(pcounts, f)
