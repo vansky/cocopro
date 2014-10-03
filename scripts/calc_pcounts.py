@@ -88,6 +88,7 @@ for e in coco_corpus:
     #What would be better?
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
+  ref_topic = topics[head_begin].split()[1]
 
     ### DEBUG
 #    output = []
@@ -136,9 +137,9 @@ for e in coco_corpus:
   if coh not in pro_from_coh:
     pro_from_coh[coh] = {'True':0.5, 'False':0.5}
   pro_from_coh[coh][pro] += 1
-  if top not in pro_from_top:
-    pro_from_top[top] = {'True':0.5, 'False':0.5}
-  pro_from_top[top][pro] += 1
+  if ref_topic not in pro_from_top:
+    pro_from_top[ref_topic] = {'True':0.5, 'False':0.5}
+  pro_from_top[ref_topic][pro] += 1
   if sent not in pro_from_sent:
     pro_from_sent[sent] = {'True':0.5, 'False':0.5}
   pro_from_sent[sent][pro] += 1
@@ -150,11 +151,11 @@ for e in coco_corpus:
     for i in range(POSS_REFS):
       ref_from_coh[coh][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
   ref_from_coh[coh][ref] += 1
-  if top not in ref_from_top:
-    ref_from_top[top] = {}
+  if ref_topic not in ref_from_top:
+    ref_from_top[ref_topic] = {}
     for i in range(POSS_REFS):
-      ref_from_top[top][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
-  ref_from_top[top][ref] += 1
+      ref_from_top[ref_topic][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
+  ref_from_top[ref_topic][ref] += 1
 
   sent_info_prior = 1.0/1000
   if sent_topic not in s_from_top: #NB: possible...? no idea, so let's say 1/1000?
