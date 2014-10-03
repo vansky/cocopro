@@ -230,7 +230,7 @@ genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-lo
 genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-location.txt)/bin/mallet genmodel/$$(word 1,$$(subst -, ,$$(basename $$*))).mallet genmodel/$$(basename $$*).topic_inferencer scripts/munge_doctopics.py
 	mkdir tmpwork
 	mkdir $(subst .,,$(suffix $*))
-	#Need to split at carriage returns since the corpus was apparently created with Windows, so ^$ fails
+	#Need to remove carriage returns since the corpus was apparently created with Windows
 	sed 's/\r//g' genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt | csplit --prefix=$(subst .,,$(suffix $*))/ --quiet - '/^$$/' '{*}'
 	$(word 2,$^) import-dir --input $(subst .,,$(suffix $*)) --output tmpwork/$(subst .,,$(suffix $*)).mallet --keep-sequence --remove-stopwords --use-pipe-from $(word 3,$^)
 	$(word 2,$^) infer-topics --input tmpwork/$(subst .,,$(suffix $*)).mallet --inferencer $(word 4,$^) --output-doc-topics $(basename $@).doctopics

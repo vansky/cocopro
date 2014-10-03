@@ -6,6 +6,7 @@
 #      sentences FILE is the list of sentence boundaries in the corpus of interest
 #      output FILE designates where to write output
 
+import math
 import pickle
 import re
 import sys
@@ -33,6 +34,19 @@ def find_sent(inix, sentlist):
     old_six = six
   return(len(sentlist)-1,sentlist[-1])
 
+def get_prob(indict, keya, keyb):
+  #returns conditional logprobs from dicts within dicts
+  #defaults to '-1' if it can't find a given key
+  if keya in indict:
+    if keyb in indict[keya]:
+      return(indict[keya][keyb])
+    else:
+      #the inner key is of an open class
+      return(indict[keya]['-1'])
+  else:
+    #the outer key is of an open class
+    return(indict['-1'][keyb])
+  
 with open(OPTS['model'], 'rb') as f:
   model = pickle.load(f)
 
@@ -86,6 +100,7 @@ for e in corpus:
       #What would be better?
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
+  ref_topic = topics[head_begin].split()[1]
 
   ### DEBUG
 #  output = []
@@ -129,20 +144,32 @@ for e in corpus:
   
   pro = topics[head_begin].split()[0] in PRONOUNS
   try:
-    likelihood += model['pro'][pro][ref,coh,sent_topic,sent_info]
+    likelihood += get_prob(model['pro_from_ref'], ref, pro)
+    likelihood += get_prob(model['pro_from_coh'], coh, pro)
+    likelihood += get_prob(model['pro_from_top'], ref_topic, pro)
+    likelihood += get_prob(model['pro_from_sent'], sent_info, pro)
+
+    likelihood += get_prob(model['ref_from_coh'], coh, ref)
+    likelihood += get_prob(model['ref_from_top'], ref_topic, ref)
+
+    likelihood += get_prob(model['s_from_top'], sent_topic, sent_info)
+
   except:
     sys.stderr.write('Likelihood key error! '+sys.argv[1]+' skipping datapoint\n')
-    #sys.stderr.write(str(model['pro'][pro].keys())+'\n')
-    output = []
-    for i in range(thissent[1],sentlist[thissent[0]+1]): #head_begin - e['SENTPOS'],next_sent):
-      output.append(topics[i].split()[0])
-    sys.stderr.write(' '.join(output)+'\n')
 #    continue
+    ### DEBUG
+#    thissent = find_sent(head_begin,sentlist)
+#    sys.stderr.write(str(model['pro'][pro].keys())+'\n')
+#    output = []
+#    for i in range(thissent[1],sentlist[thissent[0]+1]): #head_begin - e['SENTPOS'],next_sent):
+#      output.append(topics[i].split()[0])
+#    sys.stderr.write(' '.join(output)+'\n')
     raise
-  likelihood += model['ref'][ref][coh,sent_topic]
+    ###/DEBUG
+  #likelihood += model['ref'][ref][coh,sent_topic]
   likelihood += model['coh'][coh]
-  likelihood += model['topic'][sent_topic]
-  likelihood += model['sent'][sent_info][sent_topic]
+  likelihood += model['topic'][ref_topic]
+  #likelihood += model['sent'][sent_info][sent_topic]
   likelihood += model['topic'][sent_topic]
   sys.stderr.write('Success!\n')
   

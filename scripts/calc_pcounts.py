@@ -40,10 +40,10 @@ sent_counts = {} # { [word] : { [topic] : [counts] } }
 coh_counts = {} # { [coh] : [counts] }
 
 #binary
-pro_from_ref = {'-1' : 0.5} # { [ref] : { [pro] : [counts] } }
-pro_from_coh = {'-1' : 0.5} # { [coh] : { [pro] : [counts] } }
-pro_from_top = {'-1' : 0.5} # { [topic] : { [pro] : [counts] } }
-pro_from_sent = {'-1' : 0.5} # { [sent] : { [pro] : [counts] } }
+pro_from_ref = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [ref] : { [pro] : [counts] } }
+pro_from_coh = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [coh] : { [pro] : [counts] } }
+pro_from_top = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [topic] : { [pro] : [counts] } }
+pro_from_sent = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [sent] : { [pro] : [counts] } }
 
 ref_from_coh = {} # { [coh] : { [ref] : [counts] } }
 ref_from_top = {} # { [topic] : { [ref] : [counts] } }

@@ -47,7 +47,7 @@ def normalize_probs(count_dict):
         for k in count_dict:
             total += count_dict[k]
         for k in count_dict:
-            norm_dict[k] = count_dict[k] / total
+            norm_dict[k] = math.log(count_dict[k] / total)
     return(norm_dict)
 
 combined_pro_from_ref = {}
