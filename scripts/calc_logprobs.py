@@ -35,62 +35,63 @@ def combine_dicts(global_dict,local_dict):
             global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
     return(global_dict)
 
-def compute_probs(cond_counts,marginal_counts):
-    #computes log-probabilities from conditional and marginal counts
-    prob_dict = {}
-    for key in cond_counts:
-        if key not in prob_dict:
-            prob_dict[key] = {}
-        for cond in cond_counts[key]:
-            prob_dict[key][cond] = math.log(cond_counts[key][cond] / marginal_counts[cond])
-    return(prob_dict)
-
 def normalize_probs(count_dict):
     #normalize a dictionary of counts into probabilities
     total = 0
     norm_dict = {}
-    for k in count_dict:
-        if k != '-1':
+    if type(count_dict[count_dict.keys()[0]]) == type({}):
+        #normalize subdicts (conditional probs)
+        for k in count_dict:
+            count_dict[k] = normalize_probs(count_dict[k])
+    else:
+        for k in count_dict:
             total += count_dict[k]
-    for k in count_dict:
-        if k != '-1':
+        for k in count_dict:
             norm_dict[k] = count_dict[k] / total
     return(norm_dict)
 
-combined_jpro_counts = {} #C(pro,ref,coh,top,sent)
-combined_mpro_counts = {} #C(ref,coh,top,sent)
-combined_jref_counts = {} #C(ref,coh,topic)
-combined_mref_counts = {} #C(coh,topic)
-combined_sent_counts = {} #C(sent,topic)
-combined_topic_counts = {} #C(topic)
-combined_coh_counts = {} #C(coh)
+combined_pro_from_ref = {}
+combined_pro_from_coh = {}
+combined_pro_from_top = {}
+combined_pro_from_sent = {}
+combined_ref_from_coh = {}
+combined_ref_from_top = {}
+combined_s_from_top = {}
+combined_sent_counts = {}
+combined_topic_counts = {}
+combined_coh_counts = {}
 
 for fname in input_names:
     with open(fname, 'rb') as f:
         pcounts = pickle.load(f)
 
-    if 'topic' in pcounts:
-        jpro_counts = pcounts['full_joint']
-        combined_jpro_counts = combine_dicts(combined_jpro_counts,jpro_counts)
-        mpro_counts = pcounts['marginal']
-        combined_mpro_counts = combine_dicts(combined_mpro_counts,mpro_counts)
-        
-        sent_counts = pcounts['sent']
-        combined_sent_counts = combine_dicts(combined_sent_counts,sent_counts)
-        topic_counts = pcounts['topic']
-        combined_topic_counts = combine_dicts(combined_topic_counts,topic_counts)
-        coh_counts = pcounts['coh']
-        combined_coh_counts = combine_dicts(combined_coh_counts,coh_counts)
-    else:
-        jref_counts = pcounts['full_joint']
-        combined_jref_counts = combine_dicts(combined_jref_counts,jref_counts)
-        mref_counts = pcounts['marginal']
-        combined_mref_counts = combine_dicts(combined_mref_counts,mref_counts)
+    combined_pro_from_ref = combine_dicts(combined_pro_from_ref, pcounts['pro_from_ref'])
+    combined_pro_from_coh = combine_dicts(combined_pro_from_coh, pcounts['pro_from_coh'])
+    combined_pro_from_top = combine_dicts(combined_pro_from_top, pcounts['pro_from_top'])
+    combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
 
+    combined_ref_from_coh = combine_dicts(combined_ref_from_coh, pcounts['ref_from_coh'])
+    combined_ref_from_top = combine_dicts(combined_ref_from_top, pcounts['ref_from_top'])
+
+    combined_s_from_top = combine_dicts(combined_s_from_top, pcounts['s_from_top'])
+    
+    sent_counts = pcounts['sent']
+    combined_sent_counts = combine_dicts(combined_sent_counts,sent_counts)
+    topic_counts = pcounts['topic']
+    combined_topic_counts = combine_dicts(combined_topic_counts,topic_counts)
+    coh_counts = pcounts['coh']
+    combined_coh_counts = combine_dicts(combined_coh_counts,coh_counts)
+    
 prob_dict = {}
-prob_dict['pro'] = compute_probs(combined_jpro_counts,combined_mpro_counts) #P(pro|ref,coh,topic,sent)
-prob_dict['ref'] = compute_probs(combined_jref_counts,combined_mref_counts) #P(ref|coh,topic)
-prob_dict['sent'] = compute_probs(combined_sent_counts, combined_topic_counts) #P(sent|topic)
+prob_dict['pro_from_ref'] = normalize_probs(combined_pro_from_ref) #P(pro|ref)
+prob_dict['pro_from_coh'] = normalize_probs(combined_pro_from_coh) #P(pro|coh)
+prob_dict['pro_from_top'] = normalize_probs(combined_pro_from_top) #P(pro|top)
+prob_dict['pro_from_sent'] = normalize_probs(combined_pro_from_sent) #P(pro|sent)
+prob_dict['ref_from_coh'] = normalize_probs(combined_ref_from_coh) #P(ref|coh)
+prob_dict['ref_from_top'] = normalize_probs(combined_ref_from_top) #P(ref|topic)
+prob_dict['s_from_top'] = normalize_probs(combined_s_from_top) #P(sent|topic)
+
+#prob_dict['sent'] = normalize_probs(combined_sent_counts)
 prob_dict['topic'] = normalize_probs(combined_topic_counts) #P(topic|\phi_2)
 prob_dict['coh'] = normalize_probs(combined_coh_counts)     #P(coh|\phi_1)
 

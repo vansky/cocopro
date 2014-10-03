@@ -5,6 +5,7 @@
 #      sentences FILE contains a list of the sentence boundary indices from dgb
 #      output FILE designates where to write output; '-' designates stdin
 
+from __future__ import division
 import pickle
 import re
 import sys
@@ -31,20 +32,23 @@ with open(OPTS['coco-corpus'], 'rb') as f:
 with open(OPTS['topics'], 'r') as f:
   topics = f.readlines()
 
-#USE_SENTS = False
-#if 'use-sents' in OPTS:
-#  USE_SENTS = True
 with open(OPTS['sentences'], 'rb') as f:
   sentlist = pickle.load(f)
 
 PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one']
-prob_counts = {} # { [item] : { [conditional/marginal] : [counts] } }
-marginal_counts = {} # { [conditional/marginal] : [counts] }
 sent_counts = {} # { [word] : { [topic] : [counts] } }
 coh_counts = {} # { [coh] : [counts] }
 
-#if USE_SENTS: P(ref | coh, top)
-#else: P(pro | ref, coh, top, s_i)
+#binary
+pro_from_ref = {'-1' : 0.5} # { [ref] : { [pro] : [counts] } }
+pro_from_coh = {'-1' : 0.5} # { [coh] : { [pro] : [counts] } }
+pro_from_top = {'-1' : 0.5} # { [topic] : { [pro] : [counts] } }
+pro_from_sent = {'-1' : 0.5} # { [sent] : { [pro] : [counts] } }
+
+ref_from_coh = {} # { [coh] : { [ref] : [counts] } }
+ref_from_top = {} # { [topic] : { [ref] : [counts] } }
+
+s_from_top = {} # { [topic] : { [word] : [counts] } }
 
 #sys.stderr.write('topics: '+str(topics[0])+'\n\n')
 #sys.stderr.write('sentences: '+str(sentlist[0])+'\n\n')
@@ -144,12 +148,12 @@ for e in coco_corpus:
   if coh not in ref_from_coh: #NB: possible...? say range(20)?
     ref_from_coh[coh] = {}
     for i in range(POSS_REFS):
-      ref_from_coh[coh][i] = 1.0/POSS_REFS #i might need to be cast as string
+      ref_from_coh[coh][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
   ref_from_coh[coh][ref] += 1
   if top not in ref_from_top:
     ref_from_top[top] = {}
     for i in range(POSS_REFS):
-      ref_from_top[top][i] = 1.0/POSS_REFS #i might need to be cast as string
+      ref_from_top[top][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
   ref_from_top[top][ref] += 1
 
   sent_info_prior = 1.0/1000
