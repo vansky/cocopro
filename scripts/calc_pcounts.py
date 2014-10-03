@@ -140,9 +140,9 @@ for e in coco_corpus:
   if ref_topic not in pro_from_top:
     pro_from_top[ref_topic] = {'True':0.5, 'False':0.5}
   pro_from_top[ref_topic][pro] += 1
-  if sent not in pro_from_sent:
-    pro_from_sent[sent] = {'True':0.5, 'False':0.5}
-  pro_from_sent[sent][pro] += 1
+  if sent_info not in pro_from_sent:
+    pro_from_sent[sent_info] = {'True':0.5, 'False':0.5}
+  pro_from_sent[sent_info][pro] += 1
 
   #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
   POSS_REFS = 20
