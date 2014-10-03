@@ -242,20 +242,30 @@ genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-loca
 #genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
 #	python3 $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
 
-.PRECIOUS: genmodel/cocopro.%.refcounts
-# genmodel/cocopro.dgb_data-20.100.refcounts
-genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
+#.PRECIOUS: genmodel/cocopro.%.refcounts
+## genmodel/cocopro.dgb_data-20.100.refcounts
+#genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
+#	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
+#
+#.PRECIOUS: genmodel/cocopro.%.procounts
+## genmodel/cocopro.dgb_data-20.100.procounts
+#genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
+#	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --use-sents --output $@
+
+.PRECIOUS: genmodel/cocopro.%.pcounts
+# genmodel/cocopro.dgb_data-20.100.pcounts
+genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
 	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
-.PRECIOUS: genmodel/cocopro.%.procounts
-# genmodel/cocopro.dgb_data-20.100.procounts
-genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
-	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --use-sents --output $@
+#.PRECIOUS: %.model
+## genmodel/cocopro.dgb_data-20.model
+#%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),%.$(sect).refcounts %.$(sect).procounts)
+#	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
 
 .PRECIOUS: %.model
 # genmodel/cocopro.dgb_data-20.model
-%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),%.$(sect).refcounts %.$(sect).procounts)
-	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
+%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS), %.$(sect).pcounts)
+	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).pcounts) --output $@
 
 .PRECIOUS: %.training_likelihood
 # genmodel/cocopro.dgb_data-20.100.training_likelihood

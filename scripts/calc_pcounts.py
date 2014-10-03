@@ -31,9 +31,9 @@ with open(OPTS['coco-corpus'], 'rb') as f:
 with open(OPTS['topics'], 'r') as f:
   topics = f.readlines()
 
-USE_SENTS = False
-if 'use-sents' in OPTS:
-  USE_SENTS = True
+#USE_SENTS = False
+#if 'use-sents' in OPTS:
+#  USE_SENTS = True
 with open(OPTS['sentences'], 'rb') as f:
   sentlist = pickle.load(f)
 
