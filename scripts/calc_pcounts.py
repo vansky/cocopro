@@ -10,6 +10,8 @@ import pickle
 import re
 import sys
 
+VERBOSE=False #Exposes a couple bugs we'll likely need to address later as they make the data sloppy (might be inherent in c3)
+
 OPTS = {}
 for aix in range(1,len(sys.argv)):
   if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
@@ -32,8 +34,9 @@ with open(OPTS['coco-corpus'], 'rb') as f:
 with open(OPTS['topics'], 'r') as f:
   topics = f.readlines()
 
-with open(OPTS['sentences'], 'rb') as f:
-  sentlist = pickle.load(f)
+with open(OPTS['sentences'], 'r') as f:
+  sentlist = [int(s) for s in f.readlines() if s.strip() != '']
+  #sentlist = pickle.load(f)
 
 PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one']
 sent_counts = {} # { [word] : { [topic] : [counts] } }
@@ -50,14 +53,10 @@ ref_from_top = {} # { [topic] : { [ref] : [counts] } }
 
 s_from_top = {} # { [topic] : { [word] : [counts] } }
 
-#sys.stderr.write('topics: '+str(topics[0])+'\n\n')
-#sys.stderr.write('sentences: '+str(sentlist[0])+'\n\n')
-#sys.stderr.write('coco keys: '+str(coco_corpus[0]['SPAN'])+'\n\n')
-
 for e in coco_corpus:
-  #coco_corpus.dict_keys(['ANTECEDENT_SPAN', 'ENTITY_ID', 'SENTPOS', 'SPAN' : (277, 299), 'PRO', 'COHERENCE', 'CONTEXT'])
+  #coco_corpus.dict_keys(['ANTECEDENT_SPAN', 'ENTITY_ID', 'SENTPOS', 'SPAN' : (277, 299), 'PRO', 'COHERENCE', 'CONTEXT', 'HEAD', 'ANTECEDENT_HEAD'])
   #NB: currently, ref is the sentence position of the antecedent, but we may want to make ref a *distribution over positions* which is sampled from to get the antecedent
-  ref = e['ENTITY_ID']
+  ref = str(e['ENTITY_ID'])
 #  topic_list = {}
 #  for tix in range(e['SPAN'][0],e['SPAN'][1]):
 #    #determine the topic of the head
@@ -72,7 +71,8 @@ for e in coco_corpus:
   coh_counts[coh] = coh_counts.get(coh, 0) + 1
   
   #sentence portion
-  head_begin = e['SPAN'][0]
+  head_begin = e['HEAD'][0]
+  head_end = e['HEAD'][1]
   next_sent = 0
   for si in sentlist:
     if si > head_begin:
@@ -145,12 +145,26 @@ for e in coco_corpus:
   pro_from_sent[sent_info][pro] += 1
 
   #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
-  POSS_REFS = 20
-  if coh not in ref_from_coh: #NB: possible...? say range(20)?
+  POSS_REFS = 100
+  if coh not in ref_from_coh: #NB: possible...? say range(100)?
     ref_from_coh[coh] = {}
     for i in range(POSS_REFS):
       ref_from_coh[coh][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
   ref_from_coh[coh][ref] += 1
+  #### DEBUG
+  if VERBOSE:
+    if int(ref) <= 35:
+      output = [ref+': ']
+      for i in range(head_begin - e['SENTPOS'],head_begin):
+        output.append(topics[i].split()[0])
+      output.append('[')
+      for i in range(head_begin,head_end+1):
+        output.append(topics[i].split()[0])
+      output.append(']')
+      for i in range(head_end+1,next_sent):
+        output.append(topics[i].split()[0])
+      sys.stderr.write(' '.join(output)+'\n')
+  #### /DEBUG
   if ref_topic not in ref_from_top:
     ref_from_top[ref_topic] = {}
     for i in range(POSS_REFS):
@@ -163,9 +177,7 @@ for e in coco_corpus:
   #NB: For now, sentences are generated from just topics (not coherence)
   s_from_top[sent_topic][sent_info] = s_from_top[sent_topic].get(sent_info, sent_info_prior) + 1
   
-  if sent_info not in sent_counts:
-    sent_counts[sent_info] = {}
-  sent_counts[sent_info] = sent_counts.get(sent_info, sent_info_prior) + 1
+  sent_counts[sent_info] = sent_counts.get(sent_info, 0) + 1
   ###    
   #flat multinomial pro
   #for pro in PRONOUNS+['other']:
@@ -174,7 +186,7 @@ for e in coco_corpus:
   #for class in PROCLASSES.keys():
   #  for pro in PROCLASSES['class']:
   #  #pro='other' case
-    
+
 pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent,\
              'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
              's_from_top':s_from_top}

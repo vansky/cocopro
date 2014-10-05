@@ -38,8 +38,7 @@ def combine_dicts(global_dict,local_dict):
 def normalize_probs(count_dict):
     #normalize a dictionary of counts into probabilities
     total = 0
-    norm_dict = {}
-    if type(count_dict[count_dict.keys()[0]]) == type({}):
+    if type(count_dict[list(count_dict)[0]]) == type({}):
         #normalize subdicts (conditional probs)
         for k in count_dict:
             count_dict[k] = normalize_probs(count_dict[k])
@@ -47,8 +46,8 @@ def normalize_probs(count_dict):
         for k in count_dict:
             total += count_dict[k]
         for k in count_dict:
-            norm_dict[k] = math.log(count_dict[k] / total)
-    return(norm_dict)
+            count_dict[k] = math.log(count_dict[k] / total)
+    return(count_dict)
 
 combined_pro_from_ref = {}
 combined_pro_from_coh = {}
