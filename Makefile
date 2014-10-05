@@ -257,6 +257,11 @@ genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-loca
 genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
 	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
+.PRECIOUS: %.pcounts
+# genmodel/cocopro.dgb_data-20.100.pcounts
+%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids $$*.topics
+	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
+
 #.PRECIOUS: %.model
 ## genmodel/cocopro.dgb_data-20.model
 #%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),%.$(sect).refcounts %.$(sect).procounts)
@@ -275,6 +280,11 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 # genmodel/cocopro.dgb_data-20.training_likelihood
 %.training_likelihood: scripts/sum_probs.py $(foreach sect,$(DGBSECTS),%.$(sect).training_likelihood)
 	python3 $^ > $@
+
+.PRECIOUS: %.accuracy
+# genmodel/cocopro.dgb_data-20.100.accuracy
+%.accuracy: scripts/predict.py  $$(basename %).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
+	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
 
 #.PRECIOUS: genmodel/cocopro.counts
 #genmodel/cocopro.counts: $(foreach annotator,1 2,$(foreach sect,$(DGBSECTS),genmodel/cocopro.$(annotator)_$(sect).counts))

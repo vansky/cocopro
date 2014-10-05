@@ -1,5 +1,6 @@
-#calc_likelihood.py --model FILE --input FILE --topics FILE --sentences FILE --output FILE
-# uses a model to compute the likelihood of a corpus
+#predict.py --model FILE --input FILE --topics FILE --sentences FILE --output FILE
+# uses a model to predict pronominalization in a test corpus
+# NB: could also run a regression to see how strongly each factor contributes
 #      model FILE is the probability model for computing the likelihood
 #      input FILE is the corpus to compute the likelihood over
 #      topics FILE is the topic model of the corpus of interest
@@ -48,7 +49,26 @@ def get_prob(indict, keya, keyb):
     #the outer key is of an open class
     return(indict['-1'][keyb])
   raise #Something went wrong... failure in a closed class!
-  
+
+def combine_dicts(global_dict,local_dict):
+  #combines logprobs from a local_dict with those in a global_dict
+  for topkey in local_dict:
+    if type(local_dict[topkey]) == type({}):
+      if topkey not in global_dict:
+        global_dict[topkey] = {}
+      for lowkey in local_dict[topkey]:
+        global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
+    else:
+      global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
+  return(global_dict)
+
+
+def predict(indict, keya):
+  #returns the conditional probability of all keyb's on keya
+  if keya in indict:
+    return(indict[keya])
+  return(indict['-1'])
+
 with open(OPTS['model'], 'rb') as f:
   model = pickle.load(f)
 
@@ -64,7 +84,8 @@ with open(OPTS['sentences'], 'r') as f:
   
 PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one', 'who', 'which']
 
-likelihood = 0
+total = 0
+hits = 0
 
 for e in corpus:
   #coco_corpus.dict_keys(['ANTECEDENT_SPAN', 'ENTITY_ID', 'SENTPOS', 'SPAN' : (277, 299), 'PRO', 'COHERENCE', 'CONTEXT', 'HEAD', 'ANTECEDENT_HEAD'])
@@ -92,41 +113,30 @@ for e in corpus:
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
 
-  ### DEBUG
-#  output = []
-#  thissent = find_sent(head_begin,sentlist)
-#  for i in range(max(0,thissent[1]-3),sentlist[thissent[0]+1]):#head_begin - e['SENTPOS'],next_sent):
-#      output.append(topics[i].split()[0])
-#  sys.stderr.write(' '.join(output)+'\n')
-  ### /DEBUG
   
   pro = str(topics[head_begin].split()[0] in PRONOUNS)
-  try:
-    likelihood += get_prob(model['pro_from_ref'], ref, pro)
-    likelihood += get_prob(model['pro_from_coh'], coh, pro)
-    likelihood += get_prob(model['pro_from_top'], ref_topic, pro)
-    likelihood += get_prob(model['pro_from_sent'], sent_info, pro)
 
-    likelihood += get_prob(model['ref_from_coh'], coh, ref)
-    likelihood += get_prob(model['ref_from_top'], ref_topic, ref)
+  likelihood = 0
 
-    likelihood += get_prob(model['s_from_top'], sent_topic, sent_info)
-
-  except:
-    sys.stderr.write('Likelihood key error! '+sys.argv[1]+' skipping datapoint\n')
-#    continue
-    ### DEBUG
-#    thissent = find_sent(head_begin,sentlist)
-#    sys.stderr.write(str(model['pro'][pro].keys())+'\n')
-#    output = []
-#    for i in range(thissent[1],sentlist[thissent[0]+1]): #head_begin - e['SENTPOS'],next_sent):
-#      output.append(topics[i].split()[0])
-#    sys.stderr.write(' '.join(output)+'\n')
-    raise
-    ###/DEBUG
   likelihood += model['coh'][coh]
   likelihood += model['topic'][ref_topic]
   likelihood += model['topic'][sent_topic]
-  
+
+  likelihood += get_prob(model['s_from_top'], sent_topic, sent_info)
+
+  likelihood += get_prob(model['ref_from_coh'], coh, ref)
+  likelihood += get_prob(model['ref_from_top'], ref_topic, ref)
+
+  options = predict(model['pro_from_ref'], ref)
+  options = combine_dicts(options, predict(model['pro_from_coh'], coh))
+  options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
+  options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+  best = max(options.keys(), key=(lambda key: options[key])) # returns best key
+
+  total += 1
+  if best == pro:
+    hits += 1
+
+sys.stderr.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
 with open(OPTS['output'], 'w') as f:
-  f.write(str(likelihood)+'\n')
+  f.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
