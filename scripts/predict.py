@@ -137,6 +137,11 @@ for e in corpus:
   if best == pro:
     hits += 1
 
-sys.stderr.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
-with open(OPTS['output'], 'w') as f:
-  f.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
+if total != 0:
+  sys.stderr.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
+  with open(OPTS['output'], 'w') as f:
+    f.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
+else:
+  sys.stderr.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')
+  with open(OPTS['output'], 'w') as f:
+    f.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')
