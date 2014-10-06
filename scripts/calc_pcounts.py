@@ -43,10 +43,10 @@ sent_counts = {} # { [word] : { [topic] : [counts] } }
 coh_counts = {} # { [coh] : [counts] }
 
 #binary
-pro_from_ref = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [ref] : { [pro] : [counts] } }
-pro_from_coh = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [coh] : { [pro] : [counts] } }
-pro_from_top = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [topic] : { [pro] : [counts] } }
-pro_from_sent = {'-1' : {'True' : 0.5, 'False' : 0.5}} # { [sent] : { [pro] : [counts] } }
+pro_from_ref = {'-1' : {}} # { [ref] : { [pro] : [counts] } }
+pro_from_coh = {'-1' : {}} # { [coh] : { [pro] : [counts] } }
+pro_from_top = {'-1' : {}} # { [topic] : { [pro] : [counts] } }
+pro_from_sent = {'-1' : {}} # { [sent] : { [pro] : [counts] } }
 
 ref_from_coh = {} # { [coh] : { [ref] : [counts] } }
 ref_from_top = {} # { [topic] : { [ref] : [counts] } }
@@ -130,19 +130,20 @@ for e in coco_corpus:
 #    continue
 
   #binary pro
-  pro = str(topics[head_begin].split()[0] in PRONOUNS) #possible: 'True', 'False'
+#  pro = str(topics[head_begin].split()[0].lower() in PRONOUNS) #possible: 'True', 'False'
+  pro = e['TYPE'] #mention type
   if ref not in pro_from_ref:
-    pro_from_ref[ref] = {'True':0.5, 'False':0.5}
-  pro_from_ref[ref][pro] += 1
+    pro_from_ref[ref] = {}
+  pro_from_ref[ref][pro] = pro_from_ref[ref].get(pro,0) + 1
   if coh not in pro_from_coh:
-    pro_from_coh[coh] = {'True':0.5, 'False':0.5}
-  pro_from_coh[coh][pro] += 1
+    pro_from_coh[coh] = {}
+  pro_from_coh[coh][pro] = pro_from_coh[coh].get(pro,0) + 1
   if ref_topic not in pro_from_top:
-    pro_from_top[ref_topic] = {'True':0.5, 'False':0.5}
-  pro_from_top[ref_topic][pro] += 1
+    pro_from_top[ref_topic] = {}
+  pro_from_top[ref_topic][pro] = pro_from_top[ref_topic].get(pro,0) + 1
   if sent_info not in pro_from_sent:
-    pro_from_sent[sent_info] = {'True':0.5, 'False':0.5}
-  pro_from_sent[sent_info][pro] += 1
+    pro_from_sent[sent_info] = {}
+  pro_from_sent[sent_info][pro] = pro_from_sent[sent_info].get(pro,0) + 1
 
   #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
   POSS_REFS = 100
@@ -187,6 +188,28 @@ for e in coco_corpus:
   #  for pro in PROCLASSES['class']:
   #  #pro='other' case
 
+###DEBUG
+## Use scripts/find_pros.py to collect the output from the following
+#posskeys = []
+#for r in pro_from_ref:
+#  posskeys += list(pro_from_ref[r])
+#posskeys = list(set(posskeys)) #remove duplicates before re-listing possible keys
+#if posskeys != []:
+#  with open(OPTS['output']+'.prolist','w') as f:
+#    f.write(' '.join(posskeys)+'\n')
+#  ###/DEBUG
+
+
+#Possible values for PRO:
+#  10: ['PRE', 'NOM', 'BAR', 'PRO', 'HLS', 'NAM', 'ARC', 'WHQ', 'PTV', 'APP']
+posskeys = ['PRE', 'NOM', 'BAR', 'PRO', 'HLS', 'NAM', 'ARC', 'WHQ', 'PTV', 'APP']
+prior = 1 / len(posskeys)
+for d in [pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent]:
+  #assign uniform priors over the set of possible PRO values
+  for outer in d:
+    for pro in posskeys:
+      d[outer][pro] = d[outer].get(pro,0) + prior
+  
 pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent,\
              'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
              's_from_top':s_from_top}

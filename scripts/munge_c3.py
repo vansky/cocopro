@@ -273,13 +273,15 @@ def collate_annotations(dgbhandle,dgb_annothandle,c3handle):
 
       #head_span = char_to_word(int(mention['head'].split('..')[0]),ctwdict) #only care about the first index to the head_span rather than the whole span
       head_span = (char_to_word(int(mention['head'].split('..')[0])-1,ctwdict), char_to_word(int(mention['head'].split('..')[1])-2,ctwdict)) #c3 starts counting at 1 (so subtract 1 from start) and ends just past the end of the head (so subtract 2 from the end) 
-      
-      #if mention['type'] in ('PRO','WHQ'):
+
       output_elem['HEAD'] = head_span
-      if dgb[head_span[0]] in PRONOUNS:
-        output_elem['PRO'] = int(True)
-      else:
-        output_elem['PRO'] = int(False)
+      output_elem['TYPE'] = mention['type']
+#      if mention['type'] in ('PRO','WHQ'):
+#        output_elem
+      #if dgb[head_span[0]] in PRONOUNS:
+      #  output_elem['PRO'] = int(True)
+#      else:
+#        output_elem['PRO'] = int(False)
       for ix,span in enumerate(dgb_spanlookup):
         if span[0] > head_span[0]: #just passed target
           output_elem['CONTEXT'] = dgb[dgb_spanlookup[ix-1][0]] #snag first word of referring segment as context

@@ -13,6 +13,16 @@ import pickle
 import re
 import sys
 
+#TEST variable dictates the type of model used
+#  TEST = 'TEST' means we provide a valid test for a trained model
+#  TEST = [Other] means we assume every reference is maximum likelihood estimator (technically, a maximum a posteriori estimator, but our prior is uniform)
+TEST = 'TEST'
+
+if TEST == 'TEST':
+  sys.stderr.write('Testing actual model predictions\n')
+else:
+  sys.stderr.write('Forcing baseline model to answer with most likely answer\n')
+
 OPTS = {}
 for aix in range(1,len(sys.argv)):
   if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
@@ -61,6 +71,14 @@ def combine_dicts(global_dict,local_dict):
     else:
       global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
   return(global_dict)
+
+def marginalize_dict(indict):
+  #return leaf values marginalized over all conditionals
+  return_vals = {}
+  for topkey in indict:
+    for inkey in indict[topkey]:
+      return_vals[inkey] = return_vals.get(inkey,0) + math.e**indict[topkey][inkey]
+  return(return_vals)
 
 
 def predict(indict, keya):
@@ -114,7 +132,8 @@ for e in corpus:
   ref_topic = topics[head_begin].split()[1]
 
   
-  pro = str(topics[head_begin].split()[0] in PRONOUNS)
+  #pro = str(topics[head_begin].split()[0].lower() in PRONOUNS)
+  pro = e['TYPE']
 
   likelihood = 0
 
@@ -127,11 +146,20 @@ for e in corpus:
   likelihood += get_prob(model['ref_from_coh'], coh, ref)
   likelihood += get_prob(model['ref_from_top'], ref_topic, ref)
 
-  options = predict(model['pro_from_ref'], ref)
-  options = combine_dicts(options, predict(model['pro_from_coh'], coh))
-  options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
-  options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
-  best = max(options.keys(), key=(lambda key: options[key])) # returns best key
+  if TEST == 'TEST':
+    options = predict(model['pro_from_ref'], ref)
+    options = combine_dicts(options, predict(model['pro_from_coh'], coh))
+    options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
+    options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    best = max(options.keys(), key=(lambda key: options[key])) # returns best key
+  else:
+    options = marginalize_dict(model['pro_from_ref'])
+    #Don't need other dicts because we're marginalizing over all eventualities
+    #options = combine_dicts(options, predict(model['pro_from_coh'], coh))
+    #options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
+    #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    best = max(options.keys(), key=(lambda key: options[key])) # returns best key
+    sys.stderr.write('Best answer: '+str(best)+'\n')
 
   total += 1
   if best == pro:
