@@ -16,7 +16,7 @@ import sys
 #TEST variable dictates the type of model used
 #  TEST = 'TEST' means we provide a valid test for a trained model
 #  TEST = [Other] means we assume every reference is maximum likelihood estimator (technically, a maximum a posteriori estimator, but our prior is uniform)
-TEST = 'BASE'
+TEST = 'TEST'
 VERBOSE = False
 
 OPTS = {}
