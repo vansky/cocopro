@@ -16,12 +16,8 @@ import sys
 #TEST variable dictates the type of model used
 #  TEST = 'TEST' means we provide a valid test for a trained model
 #  TEST = [Other] means we assume every reference is maximum likelihood estimator (technically, a maximum a posteriori estimator, but our prior is uniform)
-TEST = 'TEST'
-
-if TEST == 'TEST':
-  sys.stderr.write('Testing actual model predictions\n')
-else:
-  sys.stderr.write('Forcing baseline model to answer with most likely answer\n')
+TEST = 'BASE'
+VERBOSE = False
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -56,9 +52,12 @@ def get_prob(indict, keya, keyb):
       #the inner key is of an open class
       return(indict[keya]['-1'])
   else:
-    #the outer key is of an open class
-    return(indict['-1'][keyb])
-  raise #Something went wrong... failure in a closed class!
+    if keyb in indict['-1']:
+      #the outer key is of an open class
+      return(indict['-1'][keyb])
+    else:
+      #both keys are of an open class
+      return(indict['-1']['-1'])
 
 def combine_dicts(global_dict,local_dict):
   #combines logprobs from a local_dict with those in a global_dict
@@ -131,15 +130,13 @@ for e in corpus:
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
 
-  
-  #pro = str(topics[head_begin].split()[0].lower() in PRONOUNS)
   pro = e['TYPE']
 
   likelihood = 0
 
-  likelihood += model['coh'][coh]
-  likelihood += model['topic'][ref_topic]
-  likelihood += model['topic'][sent_topic]
+  likelihood += predict(model['coh'], coh)
+  likelihood += predict(model['topic'], ref_topic)
+  likelihood += predict(model['topic'], sent_topic)
 
   likelihood += get_prob(model['s_from_top'], sent_topic, sent_info)
 
@@ -152,6 +149,8 @@ for e in corpus:
     options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
     best = max(options.keys(), key=(lambda key: options[key])) # returns best key
+    if VERBOSE:
+      sys.stderr.write('Best answer: '+str(best)+'\n')
   else:
     options = marginalize_dict(model['pro_from_ref'])
     #Don't need other dicts because we're marginalizing over all eventualities
@@ -159,17 +158,28 @@ for e in corpus:
     #options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
     best = max(options.keys(), key=(lambda key: options[key])) # returns best key
-    sys.stderr.write('Best answer: '+str(best)+'\n')
+    if VERBOSE:
+      sys.stderr.write('Best answer: '+str(best)+'\n')
 
   total += 1
   if best == pro:
     hits += 1
 
 if total != 0:
-  sys.stderr.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
+  if VERBOSE:
+    sys.stderr.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
   with open(OPTS['output'], 'w') as f:
+    if TEST == 'TEST':
+      f.write('Testing actual model predictions\n')
+    else:
+      f.write('Forcing baseline model to answer with most likely answer\n')
     f.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
 else:
-  sys.stderr.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')
+  if VERBOSE:
+    sys.stderr.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')
   with open(OPTS['output'], 'w') as f:
+    if TEST == 'TEST':
+      f.write('Testing actual model predictions\n')
+    else:
+      f.write('Forcing baseline model to answer with most likely answer\n')
     f.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')

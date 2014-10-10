@@ -61,6 +61,10 @@ combined_topic_counts = {}
 combined_coh_counts = {}
 
 for fname in input_names:
+    if 'hold-out' in OPTS and fname.split('.')[-2] == OPTS['hold-out']:
+        #skip held-out subcorpus
+        continue
+#    sys.stderr.write(str(fname.split('.')[-2])+'?='+OPTS['hold-out']+'\n')
     with open(fname, 'rb') as f:
         pcounts = pickle.load(f)
 
@@ -74,8 +78,8 @@ for fname in input_names:
 
     combined_s_from_top = combine_dicts(combined_s_from_top, pcounts['s_from_top'])
     
-    sent_counts = pcounts['sent']
-    combined_sent_counts = combine_dicts(combined_sent_counts,sent_counts)
+#    sent_counts = pcounts['sent']
+#    combined_sent_counts = combine_dicts(combined_sent_counts,sent_counts)
     topic_counts = pcounts['topic']
     combined_topic_counts = combine_dicts(combined_topic_counts,topic_counts)
     coh_counts = pcounts['coh']
@@ -91,7 +95,17 @@ prob_dict['ref_from_top'] = normalize_probs(combined_ref_from_top) #P(ref|topic)
 prob_dict['s_from_top'] = normalize_probs(combined_s_from_top) #P(sent|topic)
 
 #prob_dict['sent'] = normalize_probs(combined_sent_counts)
+# add a pseudo-observed unk topic
+numtopics = len(combined_topic_counts) + 1
+for k in combined_topic_counts:
+    combined_topic_counts[k] += 1 / numtopics
+combined_coh_counts['-1'] = 1 / numtopics
 prob_dict['topic'] = normalize_probs(combined_topic_counts) #P(topic|\phi_2)
+# add a pseudo-observed unk coherence relation
+numcoh = len(combined_coh_counts) + 1
+for k in combined_coh_counts:
+    combined_coh_counts[k] += 1 / numcoh
+combined_coh_counts['-1'] = 1 / numcoh
 prob_dict['coh'] = normalize_probs(combined_coh_counts)     #P(coh|\phi_1)
 
 with open(OPTS['output'],'wb') as f:

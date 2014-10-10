@@ -25,8 +25,26 @@ for aix in range(1,len(sys.argv)):
 
 def get_topic(line):
   #returns the topic assignment from this line
-  return line.strip().split()[-1]    
-    
+  return(line.strip().split()[-1])
+
+def add_pseudocounts(indict):
+  if len(indict) == 0:
+    return(indict)
+  #adds 1 pseudo observation to all conditions (divided among marginals+unk)
+  if type(indict[list(indict)[0]]) == type({}):
+    #conditional probability dict
+    for k in indict:
+      indict[k] = add_pseudocounts(indict[k])
+    #add one pseudo count for unseen conditions that can split to all observed marginals
+    poss_keys = set([m for k in indict for m in indict[k]])
+    indict['-1'] = dict([(k, 1/len(poss_keys)) for k in poss_keys])
+  else:
+    #marginal probability dist
+    numkeys = len(indict)+1
+    for k in indict:
+      indict[k] += 1/numkeys
+    indict['-1'] = 1/numkeys
+  return(indict)
 
 with open(OPTS['coco-corpus'], 'rb') as f:
   coco_corpus = pickle.load(f)
@@ -39,14 +57,14 @@ with open(OPTS['sentences'], 'r') as f:
   #sentlist = pickle.load(f)
 
 PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one']
-sent_counts = {} # { [word] : { [topic] : [counts] } }
+#sent_counts = {'-1': {}} # { [word] : { [topic] : [counts] } }
 coh_counts = {} # { [coh] : [counts] }
 
 #binary
-pro_from_ref = {'-1' : {}} # { [ref] : { [pro] : [counts] } }
-pro_from_coh = {'-1' : {}} # { [coh] : { [pro] : [counts] } }
-pro_from_top = {'-1' : {}} # { [topic] : { [pro] : [counts] } }
-pro_from_sent = {'-1' : {}} # { [sent] : { [pro] : [counts] } }
+pro_from_ref = {} # { [ref] : { [pro] : [counts] } }
+pro_from_coh = {} # { [coh] : { [pro] : [counts] } }
+pro_from_top = {} # { [topic] : { [pro] : [counts] } }
+pro_from_sent = {} # { [sent] : { [pro] : [counts] } }
 
 ref_from_coh = {} # { [coh] : { [ref] : [counts] } }
 ref_from_top = {} # { [topic] : { [ref] : [counts] } }
@@ -178,7 +196,7 @@ for e in coco_corpus:
   #NB: For now, sentences are generated from just topics (not coherence)
   s_from_top[sent_topic][sent_info] = s_from_top[sent_topic].get(sent_info, sent_info_prior) + 1
   
-  sent_counts[sent_info] = sent_counts.get(sent_info, 0) + 1
+#  sent_counts[sent_info] = sent_counts.get(sent_info, 0) + 1
   ###    
   #flat multinomial pro
   #for pro in PRONOUNS+['other']:
@@ -199,17 +217,29 @@ for e in coco_corpus:
 #    f.write(' '.join(posskeys)+'\n')
 #  ###/DEBUG
 
+###DEBUG
+## Use scripts/find_pros.py to collect the output from the following
+#posskeys = list(pro_from_coh)
+#if posskeys != []:
+#  with open(OPTS['output']+'.cohlist','w') as f:
+#    f.write(' '.join(posskeys)+'\n')
+#  ###/DEBUG
+
 
 #Possible values for PRO:
 #  10: ['PRE', 'NOM', 'BAR', 'PRO', 'HLS', 'NAM', 'ARC', 'WHQ', 'PTV', 'APP']
-posskeys = ['PRE', 'NOM', 'BAR', 'PRO', 'HLS', 'NAM', 'ARC', 'WHQ', 'PTV', 'APP']
-prior = 1 / len(posskeys)
+posspros = ['PRE', 'NOM', 'BAR', 'PRO', 'HLS', 'NAM', 'ARC', 'WHQ', 'PTV', 'APP']
+prior = 1 / len(posspros)
 for d in [pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent]:
   #assign uniform priors over the set of possible PRO values
   for outer in d:
-    for pro in posskeys:
+    for pro in posspros:
       d[outer][pro] = d[outer].get(pro,0) + prior
-  
+
+for d in (ref_from_coh, ref_from_top, pro_from_coh):
+  d = add_pseudocounts(d)
+#Possible values for COH:
+#  127: ['elab-det-time-org-num', 'elab-num-pers-det', 'elab-loc', 'elab-det-num-pers-org', 'elab-det-loc-org-time', 'elab-loc-pers', 'elab', 'elab-time-pers-loc', 'elab-det-org-num-time', 'elab-pers-time-loc', 'elab-det-pers', 'elab-det-time-org', 'elab-pers-det', 'elab-pers-org-det', 'elab-pers-det-org-time-num', 'elab-num-time', 'elab-det-num-time', 'elab-det-time-pers', 'elab-det-loc-num-org', 'elab-det-num-pers-org-loc-time', 'elab-pers-loc', 'gen', 'elab-pers-det-time-num', 'attr', 'elab-time', 'elab-time-num', 'elab-det-num-loc-time', '-1', 'elab-det-pers-time-org', 'elab-pers-org', 'elab-det-time-org-pers', 'elab-org-pers-det', 'elab-loc-det', 'elab-pers-num', 'elab-det-org-pers', 'elab-det-num', 'elab-det-time-loc', 'elab-time-det-num', 'elab-det-num-pers', 'elab-pers-time', 'elab-det-pers-time', 'elab-det-pers-org-time-num', 'elab-det-pers-loc-org', 'contrast', 'elab-num-pers', 'elab-det-org-loc', 'elab-org', 'elab-det-num-loc', 'elab-det-num-pers-time', 'elab-org-num', 'elab-det-pers-loc', 'elab-det-org-num', 'elab-det-pers-org-time', 'elab-org-time', 'elab-pers-loc-num', 'elab-loc-org-num', 'elab-det-time-num-org-loc-pers', 'elab-pers-loc-time', 'contr', 'elab-time-org', 'elab-det', 'elab-det-pers-org-num', 'elab-loc-time-det', 'elab-det-org-time-num-pers', 'elab-det-pers-time-loc', 'ce', 'elab-pers-det-loc', 'elab-det-pers-num-org', 'elab-dec-loc-pers', 'elab-det-num-org-loc', 'elab-per', 'elab-det-time', 'elab-det-pers-org', 'elab-detg', 'elab-org-det', 'elab-det-loc-num', 'elab-det-pers-org-loc', 'elab-time-loc', 'elab-det-loc-org-num', 'elab-time-num-det', 'elab-org-pers', 'elab-time-det-loc', 'elab-det-loc-org', 'elab-num-time-det', 'elab-det-pers-org-num-loc', 'elab-num-loc-org-pers', 'elab-pers-time-org', 'elab-loc-org', 'elab-det-org-loc-pers', 'temp', 'expv', 'elab-det-time-num-org', 'elab-det-pers-loc-org-num-time', 'elab-det-pers-loc-time-org', 'elab-det-loc-pers-time', 'elab-time-det', 'elab-pers-org-loc', 'elab-det-time-loc-org', 'elab-loc-det-pers', 'elab-num', 'cond', 'elab-det-pers-num', 'elab-num-loc-det', 'elab-time-det-org-pers', 'elab-pers-det-time', 'par', 'elab-loc-org-pers-det', 'same', 'elab-det-pers-time-num', 'examp', 'elab-det-loc-time', 'elab-det-loc', 'elab-det-loc-pers', 'elab-num-org-time', 'elab-pers', 'elab-det-org', 'elab-det-org-time-loc-num-pers', 'elab-det-pers-loc-time', 'elab-det-num-org', 'parallel', 'elab-num-loc-pers-det', 'elab-det-time-pers-num', 'elab-det-num-time-loc', 'elab-num-det-pers', 'elab-det-num-pers-loc', 'elab-num-loc-det-pers', 'elab-det-time-num']
 pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent,\
              'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
              's_from_top':s_from_top}
@@ -217,7 +247,8 @@ topic_counts = {}
 for t in topics:
   mytopic = get_topic(t)
   topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
-pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
+#pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
+pcounts.update({'topic': topic_counts, 'coh': coh_counts})
 with open(OPTS['output'], 'wb') as f:
   # pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent,
   # ref_from_coh, ref_from_top, s_from_top,

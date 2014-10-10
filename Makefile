@@ -237,21 +237,6 @@ genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-loca
 	python3 $(word 5,$^) --model $(basename $@).doctopics --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --output $@
 	rm -rf tmpwork $(subst .,,$(suffix $*))
 
-#.PRECIOUS: genmodel/cocopro.%.topics
-# genmodel/cocopro.dgb_data-20.100.topics
-#genmodel/cocopro.%.topics: scripts/munge_topics.py genmodel/$$(basename $$*).topic_model | genmodel/$$(word 1,$$(subst -, ,$$(basename $$*)))
-#	python3 $(word 1,$^) --model $(word 2,$^) --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --filenum $(subst .,,$(suffix $*)) --output $@
-
-#.PRECIOUS: genmodel/cocopro.%.refcounts
-## genmodel/cocopro.dgb_data-20.100.refcounts
-#genmodel/cocopro.%.refcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
-#	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
-#
-#.PRECIOUS: genmodel/cocopro.%.procounts
-## genmodel/cocopro.dgb_data-20.100.procounts
-#genmodel/cocopro.%.procounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
-#	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --use-sents --output $@
-
 .PRECIOUS: genmodel/cocopro.%.pcounts
 # genmodel/cocopro.dgb_data-20.100.pcounts
 genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics
@@ -263,16 +248,19 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --output $@
 
 #.PRECIOUS: %.model
-## genmodel/cocopro.dgb_data-20.model
-#%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS),%.$(sect).refcounts %.$(sect).procounts)
-#	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).refcounts --input $*.$(sect).procounts) --output $@
+# basic model (trained on full corpus)
+# genmodel/cocopro.dgb_data-20.model
+#%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS), %.$(sect).pcounts)
+#	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).pcounts) --output $@
 
 .PRECIOUS: %.model
-# genmodel/cocopro.dgb_data-20.model
-%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS), %.$(sect).pcounts)
-	python3 $< $(foreach sect,$(DGBSECTS),--input $*.$(sect).pcounts) --output $@
+# jack knife model (trained on all but one subcorpus)
+# genmodel/cocopro.dgb_data-20+100.model
+%.model: scripts/calc_logprobs.py $(foreach sect,$(DGBSECTS), $$(word 1,$$(subst +, ,%)).$(sect).pcounts)
+	python3 $< $(foreach sect,$(DGBSECTS),--input $(word 1,$(subst +, ,$*)).$(sect).pcounts) --hold-out $(word 2,$(subst +, ,$(suffix $*))) --output $@
 
 .PRECIOUS: %.training_likelihood
+# likelihood after training on all subcorpora
 # genmodel/cocopro.dgb_data-20.100.training_likelihood
 %.training_likelihood: scripts/calc_likelihood.py  $$(basename %).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
 	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
@@ -281,13 +269,22 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 %.training_likelihood: scripts/sum_probs.py $(foreach sect,$(DGBSECTS),%.$(sect).training_likelihood)
 	python3 $^ > $@
 
-.PRECIOUS: %.accuracy
+#.PRECIOUS: %.accuracy
+# accuracy on a subcorpus after training on all subcorpora
 # genmodel/cocopro.dgb_data-20.100.accuracy
-%.accuracy: scripts/predict.py  $$(basename %).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
+#%.accuracy: scripts/predict.py  $$(basename %).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
+#	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
+
+.PRECIOUS: %.accuracy
+# accuracy on a subcorpus after training on all subcorpora *except* that subcorpus
+# genmodel/cocopro.dgb_data-20.100.accuracy
+%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids
 	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --output $@
 
+.PRECIOUS: %.totaccuracy
+# overall accuracy
 # genmodel/cocopro.dgb_data-20.accuracy
-%.accuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBSECTS),%.$(sect).accuracy)
+%.totaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBSECTS),%.$(sect).accuracy)
 	python3 $^ > $@
 
 #.PRECIOUS: genmodel/cocopro.counts
@@ -315,41 +312,3 @@ genmodel/%.topic_inferencer: user-mallet-location.txt $(shell cat user-mallet-lo
 	# Takes a target like dgb_data-20.topic_model and trains up a topic model on dgb_data with 20 topics
 	# NB: --output-topic-keys and --output-doc-topics are more for exploration than production, so remove them from the final makeflow
 	$(word 2,$^) train-topics --input $(word 3,$^) --num-topics $(word 2,$(subst -, ,$*)) --optimize-interval $(word 2,$(subst -, ,$*)) --output-state genmodel/$*.topic_model.gz --inferencer-filename genmodel/$*.topic_inferencer  --random-seed 37 #--output-topic-keys $*_keys.txt --output-doc-topics $*_composition.txt
-
-
-
-################################################################################
-#
-#  Misc utilities
-#
-################################################################################
-
-grep.%:
-	grep $(subst '.',' ',$*) src/*.cpp include/*.h ../rvtl/include/*.h -n
-
-%.memprof: run-%
-	valgrind --tool=massif --time-unit=i --max-snapshots=500 --massif-out-file=$@ -v $<
-#	ms_print $@ | less
-
-%.procprof: 
-	cat user-cflags.txt > user-cflags.tmp.txt
-	echo '-DNDEBUG -O3 -pg' > user-cflags.txt
-	make $* -B
-	gprof $* > $@
-	cat user-cflags.tmp.txt > user-cflags.txt
-
-dist-clean:
-	@echo 'Do you really want to destroy all models in genmodel?  If not, CTRL-C and copy it from somewhere!'
-	@sleep 5
-	-rm bin/* genmodel/* */*.o ./*~ ./*~ */*.a */*.cmx */*.d ./semantic.cache pkgmodel/*
-clean:
-	@echo 'Do you really want to destroy all models in genmodel?  If not, CTRL-C and copy it from somewhere!'
-	@sleep 5
-	-rm bin/* genmodel/* */*.o ./*~ ./*~ */*.a */*.cmx */*.d ./semantic.cache
-tidy:
-	-rm bin/*            */*.o ./*~ ./*~ */*.a */*.cmx */*.d ./semantic.cache
-
-#depend:
-#	makedepend -Iinclude -I../rvtl/include -I../slush/include src/*.cpp -Y
-# #	g++ -MM -Iinclude -I../rvtl/include -I../slush/include src/*.cpp ### but then do what with this?
-
