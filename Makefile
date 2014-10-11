@@ -133,6 +133,14 @@ user-bnc-location.txt:
 	@echo 'edit it to point at your bnc repository, and re-run make to continue!'
 	@echo ''
 
+#### location of glove
+user-glove-location.txt:
+	echo '/home/corpora/original/english/' > $@
+	@echo ''
+	@echo 'ATTENTION: I had to create "$@" for you, which may be wrong'
+	@echo 'edit it to point at your bnc repository, and re-run make to continue!'
+	@echo ''
+
 #### location of tokenizer
 user-tokenizer-location.txt:
 	echo '/home/compling/ptb_tokenizer.sed' > $@
@@ -236,6 +244,12 @@ genmodel/cocopro.%.topics: user-mallet-location.txt $(shell cat user-mallet-loca
 	$(word 2,$^) infer-topics --input tmpwork/$(subst .,,$(suffix $*)).mallet --inferencer $(word 4,$^) --output-doc-topics $(basename $@).doctopics
 	python3 $(word 5,$^) --model $(basename $@).doctopics --text genmodel/$(word 1,$(subst -, ,$(basename $*)))/$(subst .,,$(suffix $*)).txt --output $@
 	rm -rf tmpwork $(subst .,,$(suffix $*))
+
+.PRECIOUS: genmodel/cocopro.%.vecs
+# genmodel/cocopro.dgb_data.100.vecs
+genmodel/cocopro.%.vecs: user-glove-location.txt $(shell cat user-glove-location.txt)/glove.6B.300d.txt scripts/build_vectoks.py \
+												genmodel/$$(basename $$*)/$$(subst .,,$$(suffix $$*)).txt
+	python3 $(word 3,$^) --vectors $(word 2,$^) --text $(word 4,$^) > $@
 
 .PRECIOUS: genmodel/cocopro.%.pcounts
 # genmodel/cocopro.dgb_data-20.100.pcounts
