@@ -53,6 +53,7 @@ combined_pro_from_ref = {}
 combined_pro_from_coh = {}
 combined_pro_from_top = {}
 combined_pro_from_sent = {}
+combined_pro_from_ant = {}
 combined_ref_from_coh = {}
 combined_ref_from_top = {}
 combined_s_from_top = {}
@@ -72,6 +73,7 @@ for fname in input_names:
     combined_pro_from_coh = combine_dicts(combined_pro_from_coh, pcounts['pro_from_coh'])
     combined_pro_from_top = combine_dicts(combined_pro_from_top, pcounts['pro_from_top'])
     combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
+    combined_pro_from_ant = combine_dicts(combined_pro_from_ant, pcounts['pro_from_ant'])
 
     combined_ref_from_coh = combine_dicts(combined_ref_from_coh, pcounts['ref_from_coh'])
     combined_ref_from_top = combine_dicts(combined_ref_from_top, pcounts['ref_from_top'])
@@ -90,6 +92,7 @@ prob_dict['pro_from_ref'] = normalize_probs(combined_pro_from_ref) #P(pro|ref)
 prob_dict['pro_from_coh'] = normalize_probs(combined_pro_from_coh) #P(pro|coh)
 prob_dict['pro_from_top'] = normalize_probs(combined_pro_from_top) #P(pro|top)
 prob_dict['pro_from_sent'] = normalize_probs(combined_pro_from_sent) #P(pro|sent)
+prob_dict['pro_from_ant'] = normalize_probs(combined_pro_from_ant) #P(pro|ant)
 prob_dict['ref_from_coh'] = normalize_probs(combined_ref_from_coh) #P(ref|coh)
 prob_dict['ref_from_top'] = normalize_probs(combined_ref_from_top) #P(ref|topic)
 prob_dict['s_from_top'] = normalize_probs(combined_s_from_top) #P(sent|topic)

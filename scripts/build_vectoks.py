@@ -21,6 +21,8 @@ def parse_vectors(inlines):
   output = {}
   for l in inlines:
     sl = l.strip().split()
+    if sl == []:
+      continue
     output[sl[0]] = [w for w in sl]
   return(output)
 

@@ -129,7 +129,8 @@ for e in corpus:
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
-
+  ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
+  
   pro = e['TYPE']
 
   likelihood = 0
@@ -144,10 +145,12 @@ for e in corpus:
   likelihood += get_prob(model['ref_from_top'], ref_topic, ref)
 
   if TEST == 'TEST':
-    options = predict(model['pro_from_ref'], ref)
+    options = {}
+    #options = combine_dicts(options, predict(model['pro_from_ref'], ref))
     options = combine_dicts(options, predict(model['pro_from_coh'], coh))
     options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
-    options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
     best = max(options.keys(), key=(lambda key: options[key])) # returns best key
     if VERBOSE:
       sys.stderr.write('Best answer: '+str(best)+'\n')
