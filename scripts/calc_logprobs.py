@@ -130,8 +130,8 @@ for fname in input_names:
 
 if ADD_PSEUDO:
   if WEAKPRIOR:
-    #normalize to largest thing to weaken prior counts
-    bigkey = max(combined_pro_counts.values())
+    #normalize to largest thing to weaken prior counts (and only see 1/100 of an pseudo-obs for added weakness)
+    bigkey = max(combined_pro_counts.values())*100
     for p in combined_pro_counts:
       combined_pro_counts[p] = combined_pro_counts[p] / bigkey
   else:
