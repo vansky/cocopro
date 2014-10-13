@@ -9,6 +9,9 @@ import pickle
 import re
 import sys
 
+ADD_PSEUDO=True #Adds pseudo counts at this large, corpus-level stage
+WEAKPRIOR=True #Strengthens/Weakens PRO priors
+
 OPTS = {}
 input_names = []
 for aix in range(1,len(sys.argv)):
@@ -49,6 +52,41 @@ def normalize_probs(count_dict):
             count_dict[k] = math.log(count_dict[k] / total)
     return(count_dict)
 
+def add_pseudocounts(indict,priordict=None):
+  if len(indict) == 0:
+    return(indict)
+  #adds 1 pseudo observation to all conditions (divided among marginals+unk)
+  if type(indict[list(indict)[0]]) == type({}):
+    #conditional probability dict
+    for k in indict:
+      indict[k] = add_pseudocounts(indict[k],priordict)
+    if not priordict:
+      #add one pseudo count for unseen conditions that can split to all observed marginals
+      poss_keys = set([m for k in indict for m in indict[k]])
+      indict['-1'] = dict([(k, 1/len(poss_keys)) for k in poss_keys])
+    else:
+      #add pseudo counts for unseen conditions that can split based on prior expectations
+      poss_keys = len(priordict) + 1
+      indict['-1'] = priordict
+      for k in priordict:
+        indict['-1'][k] += 1/poss_keys
+      indict['-1']['-1'] = 1/poss_keys
+  else:
+    if not priordict:
+      #marginal probability dist
+      numkeys = len(indict)+1
+      for k in indict:
+        indict[k] += 1/numkeys
+      indict['-1'] = 1/numkeys
+    else:
+      #include prior expectation pseudo counts
+      poss_keys = len(priordict) + 1
+      for k in priordict:
+        indict[k] = indict.get(k,0)+priordict[k] + 1/poss_keys
+      indict['-1'] = 1/poss_keys
+  return(indict)
+
+
 combined_pro_from_ref = {}
 combined_pro_from_coh = {}
 combined_pro_from_top = {}
@@ -60,6 +98,7 @@ combined_s_from_top = {}
 combined_sent_counts = {}
 combined_topic_counts = {}
 combined_coh_counts = {}
+combined_pro_counts = {}
 
 for fname in input_names:
     if 'hold-out' in OPTS and fname.split('.')[-2] == OPTS['hold-out']:
@@ -86,6 +125,26 @@ for fname in input_names:
     combined_topic_counts = combine_dicts(combined_topic_counts,topic_counts)
     coh_counts = pcounts['coh']
     combined_coh_counts = combine_dicts(combined_coh_counts,coh_counts)
+    pro_counts = pcounts['pro']
+    combined_pro_counts = combine_dicts(combined_pro_counts,pro_counts)
+
+if ADD_PSEUDO:
+  if WEAKPRIOR:
+    #normalize to largest thing to weaken prior counts
+    bigkey = max(combined_pro_counts.values())
+    for p in combined_pro_counts:
+      combined_pro_counts[p] = combined_pro_counts[p] / bigkey
+  else:
+    #normalize to smallest thing to strengthen prior counts
+    smallkey = min(combined_pro_counts.values())
+    for p in combined_pro_counts:
+      combined_pro_counts[p] = combined_pro_counts[p] / smallkey
+
+  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent, combined_pro_from_ant):
+    d = add_pseudocounts(d, combined_pro_counts)
+
+  for d in (combined_ref_from_coh, combined_ref_from_top):
+    d = add_pseudocounts(d)
     
 prob_dict = {}
 prob_dict['pro_from_ref'] = normalize_probs(combined_pro_from_ref) #P(pro|ref)
