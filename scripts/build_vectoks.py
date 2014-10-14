@@ -23,9 +23,26 @@ def parse_vectors(inlines):
     sl = l.strip().split()
     if sl == []:
       continue
-    output[sl[0]] = [w for w in sl]
+    output[sl[0]] = [w for w in sl[1:]]
   return(output)
 
+def simplify_terms(instr):
+  if len(instr) == 1 and instr in [".","?",",","!","-"]:
+    return instr
+  simple = instr.strip("-!?'\"`,\.;:(){}").lower()
+  if '$' == simple[0]:
+    return('$')
+  elif "%" == simple[-1]:
+    return("%")
+  elif simple[-2:] in ["'s","'m","'d"]:
+    return(simple[:-2])
+  elif simple == "can't":
+    return("cannot")
+  elif len(instr) > 3 and simple[-3:] in ["'ll","'re","n't","'ve"]:
+    return(simple[:-3])
+  else:
+    return(simple)
+  
 #read in the vectors
 with open(OPTS['vectors'], 'r') as f:
   vectors = parse_vectors(f.readlines())
@@ -34,7 +51,10 @@ with open(OPTS['vectors'], 'r') as f:
 with open(OPTS['text'],'r') as f:
   text = [w for l in f.readlines() for w in l.strip().split()]
 
+numdims = len(vectors[list(vectors.keys())[0]])
 for word in text:
-  if word not in vectors:
+  try:
+    sys.stdout.write(word+' '+' '.join(vectors[simplify_terms(word)])+'\n')
+  except:
+    sys.stdout.write(word+' '+' 0.00001'*numdims+'\n')
     sys.stderr.write('Problem! '+word+' not found\n')
-  sys.stdout.write(word+' '+' '.join(vectors[word])+'\n')

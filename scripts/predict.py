@@ -18,6 +18,7 @@ import sys
 #  TEST = [Other] means we assume every reference is maximum likelihood estimator (technically, a maximum a posteriori estimator, but our prior is uniform)
 TEST = 'TEST'
 VERBOSE = False
+DEBUG = True
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -77,8 +78,27 @@ def marginalize_dict(indict):
   for topkey in indict:
     for inkey in indict[topkey]:
       return_vals[inkey] = return_vals.get(inkey,0) + math.e**indict[topkey][inkey]
+  for k in return_vals:
+    return_vals[k] = math.log(return_vals[k])
   return(return_vals)
 
+def marginalize_centroid_dict(indict,invec):
+  #return leaf values marginalized over all conditionals scaled by how well invec matches each topkey
+  return_vals = {}
+  for topkey in indict:
+    for inkey in indict[topkey]:
+      return_vals[inkey] = return_vals.get(inkey,0) + math.e**indict[topkey][inkey]*abs(cosim(invec,topkey))
+  for k in return_vals:
+    return_vals[k] = math.log(return_vals[k])
+  return(return_vals)
+
+def cosim(vec1,vec2):
+    #given two lists of string representations of vectors, output the cosine similarity
+    vec1 = [float(f) for f in vec1.split()]
+    vec2 = [float(f) for f in vec2.split()]
+    vec1mag = math.sqrt(sum(f**2 for f in vec1))
+    vec2mag = math.sqrt(sum(f**2 for f in vec2))
+    return( sum(vec1[i]*vec2[i] for i in range(len(vec1)))/(vec1mag*vec2mag) )
 
 def predict(indict, keya):
   #returns the conditional probability of all keyb's on keya
@@ -94,6 +114,9 @@ with open(OPTS['input'], 'rb') as f:
 
 with open(OPTS['topics'], 'r') as f:
   topics = f.readlines()
+
+with open(OPTS['vectors'], 'r') as f:
+  vectors = [l.strip() for l in f.readlines()]
 
 with open(OPTS['sentences'], 'r') as f:
   sentlist = [int(s) for s in f.readlines() if s.strip() != '']
@@ -129,7 +152,7 @@ for e in corpus:
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
-  ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
+  ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:])
   
   pro = e['TYPE']
 
@@ -139,7 +162,7 @@ for e in corpus:
   likelihood += predict(model['topic'], ref_topic)
   likelihood += predict(model['topic'], sent_topic)
 
-  likelihood += get_prob(model['s_from_top'], sent_topic, sent_info)
+#  likelihood += get_prob(model['s_from_top'], sent_topic, sent_info)
 
   likelihood += get_prob(model['ref_from_coh'], coh, ref)
   likelihood += get_prob(model['ref_from_top'], ref_topic, ref)
@@ -150,8 +173,15 @@ for e in corpus:
     options = combine_dicts(options, predict(model['pro_from_coh'], coh))
     options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
-    options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
+    if DEBUG:
+      sys.stderr.write('Before: '+str(options)+'\n')
+    options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
+    if DEBUG:
+      sys.stderr.write('After: '+str(options)+'\n')
+    #NB: when ant becomes wholly latent, you'll need to include the cosine similarity in the likelihood.
     best = max(options.keys(), key=(lambda key: options[key])) # returns best key
+    if DEBUG:
+      sys.stderr.write('Guess: '+best+ ' Answer: '+pro+'\n\n')
     if VERBOSE:
       sys.stderr.write('Best answer: '+str(best)+'\n')
   else:

@@ -74,8 +74,8 @@ with open(OPTS['sentences'], 'r') as f:
   sentlist = [int(s) for s in f.readlines() if s.strip() != '']
   #sentlist = pickle.load(f)
 
-#with open(OPTS['vectors'], 'r') as f:
-#  vectors = [l.strip() for l in f.readlines()]
+with open(OPTS['vectors'], 'r') as f:
+  vectors = [l.strip() for l in f.readlines()]
 
 PRONOUNS = ['he','she','they','we','I','you','them','that','those','it','one']
 #sent_counts = {'-1': {}} # { [word] : { [topic] : [counts] } }
@@ -130,7 +130,7 @@ for e in coco_corpus:
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
-  ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
+  ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:]) #must be string since lists aren't hashable
 
     ### DEBUG
 #    output = []

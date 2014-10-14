@@ -15,43 +15,95 @@ WEAKPRIOR=True #Strengthens/Weakens PRO priors
 OPTS = {}
 input_names = []
 for aix in range(1,len(sys.argv)):
-    if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
-        #filename or malformed arg
-        continue
-    elif aix < len(sys.argv) - 1 and len(sys.argv[aix+1]) > 2 and sys.argv[aix+1][:2] == '--':
-        #missing filename
-        continue
-    if sys.argv[aix][2:] == 'input':
-        input_names.append(sys.argv[aix+1])
-    else:
-        OPTS[sys.argv[aix][2:]] = sys.argv[aix+1]
+  if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
+    #filename or malformed arg
+    continue
+  elif aix < len(sys.argv) - 1 and len(sys.argv[aix+1]) > 2 and sys.argv[aix+1][:2] == '--':
+    #missing filename
+    continue
+  if sys.argv[aix][2:] == 'input':
+    input_names.append(sys.argv[aix+1])
+  else:
+    OPTS[sys.argv[aix][2:]] = sys.argv[aix+1]
 
 def combine_dicts(global_dict,local_dict):
-    #adds counts from a local_dict to those in a global_dict
-    for topkey in local_dict:
-        if type(local_dict[topkey]) == type({}):
-            if topkey not in global_dict:
-                global_dict[topkey] = {}
-            for lowkey in local_dict[topkey]:
-                global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
-        else:
-            global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
-    return(global_dict)
-
-def normalize_probs(count_dict):
-    #normalize a dictionary of counts into probabilities
-    total = 0
-    if type(count_dict[list(count_dict)[0]]) == type({}):
-        #normalize subdicts (conditional probs)
-        for k in count_dict:
-            count_dict[k] = normalize_probs(count_dict[k])
+  #adds counts from a local_dict to those in a global_dict
+  for topkey in local_dict:
+    if type(local_dict[topkey]) == type({}):
+      if topkey not in global_dict:
+        global_dict[topkey] = {}
+      for lowkey in local_dict[topkey]:
+        global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
     else:
-        for k in count_dict:
-            total += count_dict[k]
-        for k in count_dict:
-            count_dict[k] = math.log(count_dict[k] / total)
-    return(count_dict)
+      global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
+  return(global_dict)
 
+def normalize_probs(count_dict,LOG=True):
+  #normalize a dictionary of counts into log-probabilities
+  total = 0
+  if type(count_dict[list(count_dict)[0]]) == type({}):
+    #normalize subdicts (conditional probs)
+    for k in count_dict:
+      count_dict[k] = normalize_probs(count_dict[k])
+  else:
+    for k in count_dict:
+      total += count_dict[k]
+    for k in count_dict:
+      if LOG:
+        count_dict[k] = math.log(count_dict[k] / total)
+      else:
+        count_dict[k] /= total
+  return(count_dict)
+
+def find_centroid(veclist):
+  #given a list of strings representations of vectors, output the centroid
+  if veclist == []:
+    return(veclist)
+  if len(veclist) == 1:
+    return(veclist[0])
+  centroid = [float(f) for f in veclist[0].split()]
+  for v in veclist[1:]:
+    for i,d in enumerate(float(f) for f in v.split()):
+      centroid[i] += d
+  mylen = len(veclist)
+  for i in range(len(centroid)):
+    centroid[i] /= mylen
+  return(' '.join(list(str(f) for f in centroid)))
+
+def cosim(vec1,vec2):
+  #given two lists of string representations of vectors, output the cosine similarity
+  vec1 = [float(f) for f in vec1.split()]
+  vec2 = [float(f) for f in vec2.split()]
+  vec1mag = math.sqrt(sum(f**2 for f in vec1))
+  vec2mag = math.sqrt(sum(f**2 for f in vec2))
+  return( sum(vec1[i]*vec2[i] for i in range(len(vec1)))/(vec1mag*vec2mag) )
+
+def reframe_with_centroids(indict):
+  #replace conditional probability dict parents with centroids
+  inverteddict = {}
+  for value in set(k2 for k in indict for k2 in indict[k].keys()):
+    #for each leaf key type
+    inverteddict[value] = []
+    for k in indict:
+      #make a dict to find all possible parents that can generate leaf key type
+      if value in indict[k]:
+        inverteddict[value].append(k)
+  outdict = {}
+  for k in inverteddict:
+    #for each possible manifestation (PRO)
+    #find the centroid
+    newcentroid = find_centroid(inverteddict[k])
+    outdict[newcentroid] = {}
+    for parent in indict:
+      for child in indict[parent]:
+        #update the probabilities based on |cos(Parent_x,centroid)|*P(Parent_x->x)
+        outdict[newcentroid][child] = outdict[newcentroid].get(child,0) + abs(cosim(newcentroid,parent)) * indict[parent][child]
+  for child in outdict[newcentroid]:
+    #normalize each child by the number of vectors that composed it
+    outdict[newcentroid][child] = outdict[newcentroid][child] / len(inverteddict[child])
+  # P(a|A') = ( sim(A_1|A')*P(a|A_1) + sim(A_2|A')*P(a|A_2) ) / 2
+  return(outdict)
+    
 def add_pseudocounts(indict,priordict=None):
   if len(indict) == 0:
     return(indict)
@@ -80,10 +132,11 @@ def add_pseudocounts(indict,priordict=None):
       indict['-1'] = 1/numkeys
     else:
       #include prior expectation pseudo counts
-      poss_keys = len(priordict) + 1
-      for k in priordict:
-        indict[k] = indict.get(k,0)+priordict[k] + 1/poss_keys
-      indict['-1'] = 1/poss_keys
+      pass
+#      poss_keys = len(priordict) + 1
+#      for k in priordict:
+#        indict[k] = indict.get(k,0)+priordict[k] + 1/poss_keys
+#      indict['-1'] = 1/poss_keys
   return(indict)
 
 
@@ -101,32 +154,32 @@ combined_coh_counts = {}
 combined_pro_counts = {}
 
 for fname in input_names:
-    if 'hold-out' in OPTS and fname.split('.')[-2] == OPTS['hold-out']:
-        #skip held-out subcorpus
-        continue
+  if 'hold-out' in OPTS and fname.split('.')[-2] == OPTS['hold-out']:
+    #skip held-out subcorpus
+    continue
 #    sys.stderr.write(str(fname.split('.')[-2])+'?='+OPTS['hold-out']+'\n')
-    with open(fname, 'rb') as f:
-        pcounts = pickle.load(f)
+  with open(fname, 'rb') as f:
+    pcounts = pickle.load(f)
 
-    combined_pro_from_ref = combine_dicts(combined_pro_from_ref, pcounts['pro_from_ref'])
-    combined_pro_from_coh = combine_dicts(combined_pro_from_coh, pcounts['pro_from_coh'])
-    combined_pro_from_top = combine_dicts(combined_pro_from_top, pcounts['pro_from_top'])
-    combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
-    combined_pro_from_ant = combine_dicts(combined_pro_from_ant, pcounts['pro_from_ant'])
+  combined_pro_from_ref = combine_dicts(combined_pro_from_ref, pcounts['pro_from_ref'])
+  combined_pro_from_coh = combine_dicts(combined_pro_from_coh, pcounts['pro_from_coh'])
+  combined_pro_from_top = combine_dicts(combined_pro_from_top, pcounts['pro_from_top'])
+  combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
+  combined_pro_from_ant = combine_dicts(combined_pro_from_ant, pcounts['pro_from_ant'])
 
-    combined_ref_from_coh = combine_dicts(combined_ref_from_coh, pcounts['ref_from_coh'])
-    combined_ref_from_top = combine_dicts(combined_ref_from_top, pcounts['ref_from_top'])
+  combined_ref_from_coh = combine_dicts(combined_ref_from_coh, pcounts['ref_from_coh'])
+  combined_ref_from_top = combine_dicts(combined_ref_from_top, pcounts['ref_from_top'])
 
-    combined_s_from_top = combine_dicts(combined_s_from_top, pcounts['s_from_top'])
+  combined_s_from_top = combine_dicts(combined_s_from_top, pcounts['s_from_top'])
     
 #    sent_counts = pcounts['sent']
 #    combined_sent_counts = combine_dicts(combined_sent_counts,sent_counts)
-    topic_counts = pcounts['topic']
-    combined_topic_counts = combine_dicts(combined_topic_counts,topic_counts)
-    coh_counts = pcounts['coh']
-    combined_coh_counts = combine_dicts(combined_coh_counts,coh_counts)
-    pro_counts = pcounts['pro']
-    combined_pro_counts = combine_dicts(combined_pro_counts,pro_counts)
+  topic_counts = pcounts['topic']
+  combined_topic_counts = combine_dicts(combined_topic_counts,topic_counts)
+  coh_counts = pcounts['coh']
+  combined_coh_counts = combine_dicts(combined_coh_counts,coh_counts)
+  pro_counts = pcounts['pro']
+  combined_pro_counts = combine_dicts(combined_pro_counts,pro_counts)
 
 if ADD_PSEUDO:
   if WEAKPRIOR:
@@ -140,7 +193,9 @@ if ADD_PSEUDO:
     for p in combined_pro_counts:
       combined_pro_counts[p] = combined_pro_counts[p] / smallkey
 
-  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent, combined_pro_from_ant):
+  combined_pro_from_ant = reframe_with_centroids(normalize_probs(combined_pro_from_ant, LOG=False))
+  
+  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent):
     d = add_pseudocounts(d, combined_pro_counts)
 
   for d in (combined_ref_from_coh, combined_ref_from_top):
@@ -160,15 +215,15 @@ prob_dict['s_from_top'] = normalize_probs(combined_s_from_top) #P(sent|topic)
 # add a pseudo-observed unk topic
 numtopics = len(combined_topic_counts) + 1
 for k in combined_topic_counts:
-    combined_topic_counts[k] += 1 / numtopics
+  combined_topic_counts[k] += 1 / numtopics
 combined_coh_counts['-1'] = 1 / numtopics
 prob_dict['topic'] = normalize_probs(combined_topic_counts) #P(topic|\phi_2)
 # add a pseudo-observed unk coherence relation
 numcoh = len(combined_coh_counts) + 1
 for k in combined_coh_counts:
-    combined_coh_counts[k] += 1 / numcoh
+  combined_coh_counts[k] += 1 / numcoh
 combined_coh_counts['-1'] = 1 / numcoh
 prob_dict['coh'] = normalize_probs(combined_coh_counts)     #P(coh|\phi_1)
 
 with open(OPTS['output'],'wb') as f:
-    pickle.dump(prob_dict, f)
+  pickle.dump(prob_dict, f)
