@@ -11,6 +11,7 @@ import sys
 
 ADD_PSEUDO=True #Adds pseudo counts at this large, corpus-level stage
 WEAKPRIOR=True #Strengthens/Weakens PRO priors
+ANT_VECTORS=False #Uses distributed representation of antecedents
 
 OPTS = {}
 input_names = []
@@ -132,11 +133,11 @@ def add_pseudocounts(indict,priordict=None):
       indict['-1'] = 1/numkeys
     else:
       #include prior expectation pseudo counts
-      pass
-#      poss_keys = len(priordict) + 1
-#      for k in priordict:
-#        indict[k] = indict.get(k,0)+priordict[k] + 1/poss_keys
-#      indict['-1'] = 1/poss_keys
+#      pass
+      poss_keys = len(priordict) + 1
+      for k in priordict:
+        indict[k] = indict.get(k,0)+priordict[k] + 1/poss_keys
+      indict['-1'] = 1/poss_keys
   return(indict)
 
 
@@ -193,10 +194,14 @@ if ADD_PSEUDO:
     for p in combined_pro_counts:
       combined_pro_counts[p] = combined_pro_counts[p] / smallkey
 
-  combined_pro_from_ant = reframe_with_centroids(normalize_probs(combined_pro_from_ant, LOG=False))
+  if ANT_VECTORS:
+    combined_pro_from_ant = reframe_with_centroids(normalize_probs(combined_pro_from_ant, LOG=False))
   
-  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent):
-    d = add_pseudocounts(d, combined_pro_counts)
+    for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent):
+      d = add_pseudocounts(d, combined_pro_counts)
+  else:
+    for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent, combined_pro_from_ant):
+      d = add_pseudocounts(d, combined_pro_counts)
 
   for d in (combined_ref_from_coh, combined_ref_from_top):
     d = add_pseudocounts(d)

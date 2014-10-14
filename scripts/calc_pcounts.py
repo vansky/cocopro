@@ -14,6 +14,7 @@ import sys
 VERBOSE=False #Exposes a couple bugs we'll likely need to address later as they make the data sloppy (might be inherent in c3)
 WEAKPRIOR=True #Weakens/Strengthens prior PRO expectations
 ADD_PSEUDO=False #Adds pseudo counts at this document-level stage
+ANT_VECTORS = False #uses distributed representation of antecedent
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -130,7 +131,10 @@ for e in coco_corpus:
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
-  ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:]) #must be string since lists aren't hashable
+  if ANT_VECTORS:
+    ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:]) #must be string since lists aren't hashable
+  else:
+    ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
 
     ### DEBUG
 #    output = []

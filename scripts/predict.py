@@ -19,6 +19,7 @@ import sys
 TEST = 'TEST'
 VERBOSE = False
 DEBUG = True
+ANT_VECTORS = False
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -152,7 +153,10 @@ for e in corpus:
   sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
-  ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:])
+  if ANT_VECTORS:
+    ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:])
+  else:
+    ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
   
   pro = e['TYPE']
 
@@ -175,7 +179,10 @@ for e in corpus:
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
     if DEBUG:
       sys.stderr.write('Before: '+str(options)+'\n')
-    options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
+    if ANT_VECTORS:
+      options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
+    else:
+      options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
     if DEBUG:
       sys.stderr.write('After: '+str(options)+'\n')
     #NB: when ant becomes wholly latent, you'll need to include the cosine similarity in the likelihood.
