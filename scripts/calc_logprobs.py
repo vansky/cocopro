@@ -12,6 +12,7 @@ import sys
 ADD_PSEUDO=True #Adds pseudo counts at this large, corpus-level stage
 WEAKPRIOR=True #Strengthens/Weakens PRO priors
 ANT_VECTORS=False #Uses distributed representation of antecedents
+SENT_VECTORS=False #Uses distributed representation of sentence
 
 OPTS = {}
 input_names = []
@@ -119,11 +120,11 @@ def add_pseudocounts(indict,priordict=None):
       indict['-1'] = dict([(k, 1/len(poss_keys)) for k in poss_keys])
     else:
       #add pseudo counts for unseen conditions that can split based on prior expectations
-      poss_keys = len(priordict) + 1
+      numkeys = len(priordict) + 1
       indict['-1'] = priordict
       for k in priordict:
-        indict['-1'][k] += 1/poss_keys
-      indict['-1']['-1'] = 1/poss_keys
+        indict['-1'][k] += 1/numkeys
+      indict['-1']['-1'] = 1/numkeys
   else:
     if not priordict:
       #marginal probability dist
@@ -133,7 +134,6 @@ def add_pseudocounts(indict,priordict=None):
       indict['-1'] = 1/numkeys
     else:
       #include prior expectation pseudo counts
-#      pass
       poss_keys = len(priordict) + 1
       for k in priordict:
         indict[k] = indict.get(k,0)+priordict[k] + 1/poss_keys
@@ -196,13 +196,16 @@ if ADD_PSEUDO:
 
   if ANT_VECTORS:
     combined_pro_from_ant = reframe_with_centroids(normalize_probs(combined_pro_from_ant, LOG=False))
-  
-    for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent):
-      d = add_pseudocounts(d, combined_pro_counts)
   else:
-    for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_sent, combined_pro_from_ant):
-      d = add_pseudocounts(d, combined_pro_counts)
+    combined_pro_from_ant = add_pseudocounts(combined_pro_from_ant, combined_pro_counts)
+    
+  if SENT_VECTORS:
+    combined_pro_from_sent = reframe_with_centroids(normalize_probs(combined_pro_from_sent, LOG=False))
+  else:
+    combined_pro_from_sent = add_pseudocounts(combined_pro_from_sent, combined_pro_counts)
 
+  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top):
+    d = add_pseudocounts(d, combined_pro_counts)
   for d in (combined_ref_from_coh, combined_ref_from_top):
     d = add_pseudocounts(d)
     

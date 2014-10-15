@@ -15,6 +15,7 @@ VERBOSE=False #Exposes a couple bugs we'll likely need to address later as they 
 WEAKPRIOR=True #Weakens/Strengthens prior PRO expectations
 ADD_PSEUDO=False #Adds pseudo counts at this document-level stage
 ANT_VECTORS = False #uses distributed representation of antecedent
+SENT_VECTORS = False #uses distributed representation of sentence
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -128,7 +129,10 @@ for e in coco_corpus:
     # so range(e['SPAN'][1],next_sent) is the remaining sentence_{-i}
   #NB: For now, we treat the first word of the sentence as s_{-i}, but that's a really crappy method of accounting
     #What would be better?
-  sent_info = topics[head_begin - e['SENTPOS']].split()[0]
+  if SENT_VECTORS:
+    sent_info = ' '.join(vectors[head_begin - e['SENTPOS']].split()[1:])
+  else:
+    sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
   if ANT_VECTORS:

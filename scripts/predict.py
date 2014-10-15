@@ -20,6 +20,7 @@ TEST = 'TEST'
 VERBOSE = False
 DEBUG = True
 ANT_VECTORS = False
+SENT_VECTORS = False
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -150,7 +151,10 @@ for e in corpus:
       # so range(e['SPAN'][1],next_sent) is the remaining sentence_{-i}
   #NB: For now, we treat the first word of the sentence as s_{-i}, but that's a really crappy method of accounting
       #What would be better?
-  sent_info = topics[head_begin - e['SENTPOS']].split()[0]
+  if SENT_VECTORS:
+    sent_info = ' '.join(vectors[head_begin - e['SENTPOS']].split()[1:])
+  else:
+    sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
   if ANT_VECTORS:
@@ -177,6 +181,10 @@ for e in corpus:
     options = combine_dicts(options, predict(model['pro_from_coh'], coh))
     options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    if SENT_VECTORS:
+      options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
+    else:
+      options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
     if DEBUG:
       sys.stderr.write('Before: '+str(options)+'\n')
     if ANT_VECTORS:
