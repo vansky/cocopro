@@ -49,6 +49,8 @@ BROWNTRAINSECTS = cf cg ck cl cm cn cp cr
 BNCTRAINDIRS = A B C D E F G H J
 LRSECTS = oerr oer ofr oq rnr se ser
 DGBSECTS = $(shell seq 135)
+DGBDEVSECTS = $(shell seq 100 115) #391 dev cases
+DGBTESTSECTS= $(shell seq 100) $(shell seq 116 135) #2270 test cases
 
 include $(wildcard */*.d)      ## don't comment out, it breaks make!
 
@@ -299,6 +301,12 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 # overall accuracy
 # genmodel/cocopro.dgb_data-20.accuracy
 %.totaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBSECTS),%.$(sect).accuracy)
+	python3 $^ > $@
+
+%.devaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBDEVSECTS),%.$(sect).accuracy)
+	python3 $^ > $@
+
+%.testaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBTESTSECTS),%.$(sect).accuracy)
 	python3 $^ > $@
 
 #.PRECIOUS: genmodel/cocopro.counts
