@@ -16,6 +16,8 @@ WEAKPRIOR=True #Weakens/Strengthens prior PRO expectations
 ADD_PSEUDO=False #Adds pseudo counts at this document-level stage
 ANT_VECTORS = False #uses distributed representation of antecedent
 SENT_VECTORS = False #uses distributed representation of sentence
+BI_VECTORS = False #uses distributed representation of bigram context
+
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -90,6 +92,7 @@ pro_from_coh = {} # { [coh] : { [pro] : [counts] } }
 pro_from_top = {} # { [topic] : { [pro] : [counts] } }
 pro_from_sent = {} # { [sent] : { [pro] : [counts] } }
 pro_from_ant = {} # { [ant] : { [pro] : [counts] } }
+pro_from_bi = {} # { [bi] : { [pro] : [counts] } }
 
 ref_from_coh = {} # { [coh] : { [ref] : [counts] } }
 ref_from_top = {} # { [topic] : { [ref] : [counts] } }
@@ -139,6 +142,10 @@ for e in coco_corpus:
     ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:]) #must be string since lists aren't hashable
   else:
     ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
+  if BI_VECTORS:
+    bi_info = ' '.join(vectors[head_begin - 1].split()[1:])
+  else:
+    bi_info = topics[head_begin - 1].split()[0]
 
     ### DEBUG
 #    output = []
@@ -199,6 +206,9 @@ for e in coco_corpus:
   if ant_info not in pro_from_ant:
     pro_from_ant[ant_info] = {}
   pro_from_ant[ant_info][pro] = pro_from_ant[ant_info].get(pro,0) + 1
+  if bi_info not in pro_from_bi:
+    pro_from_bi[bi_info] = {}
+  pro_from_bi[bi_info][pro] = pro_from_bi[bi_info].get(pro,0) + 1
 
 
   #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
@@ -287,7 +297,7 @@ if ADD_PSEUDO:
       for p in pro_counts:
         pro_counts[p] = pro_counts[p] / smallkey
 
-  for d in (pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent, pro_from_ant):
+  for d in (pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent, pro_from_ant, pro_from_bi):
     d = add_pseudocounts(d,pro_counts)
 
   for d in (ref_from_coh, ref_from_top):
@@ -295,7 +305,7 @@ if ADD_PSEUDO:
 #Possible values for COH:
 #  127: ['elab-det-time-org-num', 'elab-num-pers-det', 'elab-loc', 'elab-det-num-pers-org', 'elab-det-loc-org-time', 'elab-loc-pers', 'elab', 'elab-time-pers-loc', 'elab-det-org-num-time', 'elab-pers-time-loc', 'elab-det-pers', 'elab-det-time-org', 'elab-pers-det', 'elab-pers-org-det', 'elab-pers-det-org-time-num', 'elab-num-time', 'elab-det-num-time', 'elab-det-time-pers', 'elab-det-loc-num-org', 'elab-det-num-pers-org-loc-time', 'elab-pers-loc', 'gen', 'elab-pers-det-time-num', 'attr', 'elab-time', 'elab-time-num', 'elab-det-num-loc-time', '-1', 'elab-det-pers-time-org', 'elab-pers-org', 'elab-det-time-org-pers', 'elab-org-pers-det', 'elab-loc-det', 'elab-pers-num', 'elab-det-org-pers', 'elab-det-num', 'elab-det-time-loc', 'elab-time-det-num', 'elab-det-num-pers', 'elab-pers-time', 'elab-det-pers-time', 'elab-det-pers-org-time-num', 'elab-det-pers-loc-org', 'contrast', 'elab-num-pers', 'elab-det-org-loc', 'elab-org', 'elab-det-num-loc', 'elab-det-num-pers-time', 'elab-org-num', 'elab-det-pers-loc', 'elab-det-org-num', 'elab-det-pers-org-time', 'elab-org-time', 'elab-pers-loc-num', 'elab-loc-org-num', 'elab-det-time-num-org-loc-pers', 'elab-pers-loc-time', 'contr', 'elab-time-org', 'elab-det', 'elab-det-pers-org-num', 'elab-loc-time-det', 'elab-det-org-time-num-pers', 'elab-det-pers-time-loc', 'ce', 'elab-pers-det-loc', 'elab-det-pers-num-org', 'elab-dec-loc-pers', 'elab-det-num-org-loc', 'elab-per', 'elab-det-time', 'elab-det-pers-org', 'elab-detg', 'elab-org-det', 'elab-det-loc-num', 'elab-det-pers-org-loc', 'elab-time-loc', 'elab-det-loc-org-num', 'elab-time-num-det', 'elab-org-pers', 'elab-time-det-loc', 'elab-det-loc-org', 'elab-num-time-det', 'elab-det-pers-org-num-loc', 'elab-num-loc-org-pers', 'elab-pers-time-org', 'elab-loc-org', 'elab-det-org-loc-pers', 'temp', 'expv', 'elab-det-time-num-org', 'elab-det-pers-loc-org-num-time', 'elab-det-pers-loc-time-org', 'elab-det-loc-pers-time', 'elab-time-det', 'elab-pers-org-loc', 'elab-det-time-loc-org', 'elab-loc-det-pers', 'elab-num', 'cond', 'elab-det-pers-num', 'elab-num-loc-det', 'elab-time-det-org-pers', 'elab-pers-det-time', 'par', 'elab-loc-org-pers-det', 'same', 'elab-det-pers-time-num', 'examp', 'elab-det-loc-time', 'elab-det-loc', 'elab-det-loc-pers', 'elab-num-org-time', 'elab-pers', 'elab-det-org', 'elab-det-org-time-loc-num-pers', 'elab-det-pers-loc-time', 'elab-det-num-org', 'parallel', 'elab-num-loc-pers-det', 'elab-det-time-pers-num', 'elab-det-num-time-loc', 'elab-num-det-pers', 'elab-det-num-pers-loc', 'elab-num-loc-det-pers', 'elab-det-time-num']
 pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent, 'pro_from_ant':pro_from_ant,\
-             'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
+             'pro_from_bi':pro_from_bi, 'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
              's_from_top':s_from_top}
 topic_counts = {}
 for t in topics:

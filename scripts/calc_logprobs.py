@@ -13,6 +13,7 @@ ADD_PSEUDO=True #Adds pseudo counts at this large, corpus-level stage
 WEAKPRIOR=True #Strengthens/Weakens PRO priors
 ANT_VECTORS=False #Uses distributed representation of antecedents
 SENT_VECTORS=False #Uses distributed representation of sentence
+BI_VECTORS=False #Uses distributed representation of bigram context
 
 OPTS = {}
 input_names = []
@@ -146,6 +147,7 @@ combined_pro_from_coh = {}
 combined_pro_from_top = {}
 combined_pro_from_sent = {}
 combined_pro_from_ant = {}
+combined_pro_from_bi = {}
 combined_ref_from_coh = {}
 combined_ref_from_top = {}
 combined_s_from_top = {}
@@ -167,6 +169,7 @@ for fname in input_names:
   combined_pro_from_top = combine_dicts(combined_pro_from_top, pcounts['pro_from_top'])
   combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
   combined_pro_from_ant = combine_dicts(combined_pro_from_ant, pcounts['pro_from_ant'])
+  combined_pro_from_bi = combine_dicts(combined_pro_from_bi, pcounts['pro_from_bi'])
 
   combined_ref_from_coh = combine_dicts(combined_ref_from_coh, pcounts['ref_from_coh'])
   combined_ref_from_top = combine_dicts(combined_ref_from_top, pcounts['ref_from_top'])
@@ -198,7 +201,12 @@ if ADD_PSEUDO:
     combined_pro_from_ant = reframe_with_centroids(normalize_probs(combined_pro_from_ant, LOG=False))
   else:
     combined_pro_from_ant = add_pseudocounts(combined_pro_from_ant, combined_pro_counts)
-    
+
+  if BI_VECTORS:
+    combined_pro_from_bi = reframe_with_centroids(normalize_probs(combined_pro_from_bi, LOG=False))
+  else:
+    combined_pro_from_bi = add_pseudocounts(combined_pro_from_bi, combined_pro_counts)
+
   if SENT_VECTORS:
     combined_pro_from_sent = reframe_with_centroids(normalize_probs(combined_pro_from_sent, LOG=False))
   else:
@@ -215,6 +223,7 @@ prob_dict['pro_from_coh'] = normalize_probs(combined_pro_from_coh) #P(pro|coh)
 prob_dict['pro_from_top'] = normalize_probs(combined_pro_from_top) #P(pro|top)
 prob_dict['pro_from_sent'] = normalize_probs(combined_pro_from_sent) #P(pro|sent)
 prob_dict['pro_from_ant'] = normalize_probs(combined_pro_from_ant) #P(pro|ant)
+prob_dict['pro_from_bi'] = normalize_probs(combined_pro_from_bi) #P(pro|bi)
 prob_dict['ref_from_coh'] = normalize_probs(combined_ref_from_coh) #P(ref|coh)
 prob_dict['ref_from_top'] = normalize_probs(combined_ref_from_top) #P(ref|topic)
 prob_dict['s_from_top'] = normalize_probs(combined_s_from_top) #P(sent|topic)

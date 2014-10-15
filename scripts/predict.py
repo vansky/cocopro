@@ -18,9 +18,11 @@ import sys
 #  TEST = [Other] means we assume every reference is maximum likelihood estimator (technically, a maximum a posteriori estimator, but our prior is uniform)
 TEST = 'TEST'
 VERBOSE = False
-DEBUG = True
+DEBUG = False
 ANT_VECTORS = False
 SENT_VECTORS = False
+BI_VECTORS = False
+
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -161,6 +163,10 @@ for e in corpus:
     ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:])
   else:
     ant_info = topics[e['ANTECEDENT_HEAD'][0]].split()[0]
+  if BI_VECTORS:
+    bi_info = ' '.join(vectors[head_begin - 1].split()[1:])
+  else:
+    bi_info = topics[head_begin - 1].split()[0]
   
   pro = e['TYPE']
 
@@ -185,15 +191,20 @@ for e in corpus:
       options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
     else:
       options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
-    if DEBUG:
-      sys.stderr.write('Before: '+str(options)+'\n')
     if ANT_VECTORS:
       options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
     else:
       options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
+      
+    if DEBUG:
+      sys.stderr.write('Before: '+str(options)+'\n')
+    if BI_VECTORS:
+      options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_bi'], bi_info))
+    else:
+      options = combine_dicts(options, predict(model['pro_from_bi'], bi_info))
     if DEBUG:
       sys.stderr.write('After: '+str(options)+'\n')
-    #NB: when ant becomes wholly latent, you'll need to include the cosine similarity in the likelihood.
+      
     best = max(options.keys(), key=(lambda key: options[key])) # returns best key
     if DEBUG:
       sys.stderr.write('Guess: '+best+ ' Answer: '+pro+'\n\n')
