@@ -28,7 +28,9 @@ def parse_vectors(inlines):
 
 def simplify_terms(instr):
   if len(instr) == 1 and instr in [".","?",",","!","-"]:
-    return instr
+    return(instr)
+  elif len(instr) == 2 and instr in ["--"]:
+    return(instr)
   simple = instr.strip("-!?'\"`,\.;:(){}").lower()
   if '$' == simple[0]:
     return('$')
