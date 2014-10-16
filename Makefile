@@ -238,6 +238,10 @@ genmodel/cocopro.%.sentids: user-sentokenizer-location.txt $(shell cat user-sent
 genmodel/cocopro.%.sents: user-sentokenizer-location.txt $(shell cat user-sentokenizer-location.txt)/simple_sentence_tokenizer.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
 	python3 $(word 2,$^) --input $(word 3,$^) --output $@
 
+.PRECIOUS: genmodel/cocopro.cats
+genmodel/cocopro.cats: scripts/grab_leaves.sed scripts/align_parsed_text.py parsing_data/cocopro.notok.sents parsing_data/cocopro.wsj02to21-gcg14-1671-5sm.fullberk.parsed.nol.linetrees
+	$(word 1, $^) $(word 4,$^) | python3 $(word 2,$^) --parsed - --sentences $(word 3,$^) --output $@
+
 #.PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.dgb_data-20.1_100.corpus
 #genmodel/cocopro.%.corpus: scripts/munge_c3.py \
