@@ -145,10 +145,18 @@ user-glove-location.txt:
 
 #### location of tokenizer
 user-tokenizer-location.txt:
-	echo '/home/compling/ptb_tokenizer.sed' > $@
+	echo '/home/compling/extended_penn_tokenizer' > $@
 	@echo ''
 	@echo 'ATTENTION: I had to create "$@" for you, which may be wrong'
-	@echo 'edit it to point at your tokenizer script, and re-run make to continue!'
+	@echo 'edit it to point at your tokenizer directory, and re-run make to continue!'
+	@echo ''
+
+#### location of sentence tokenizer
+user-sentokenizer-location.txt:
+	echo '/home/compling/simple_sentence_tokenizer' > $@
+	@echo ''
+	@echo 'ATTENTION: I had to create "$@" for you, which may be wrong'
+	@echo 'edit it to point at your tokenizer directory, and re-run make to continue!'
 	@echo ''
 
 ################################################################################
@@ -223,8 +231,12 @@ genmodel/cocopro.%.corpus: scripts/munge_c3.py $(shell cat user-dgb-location.txt
 	python3 $< --text $(word 2,$^) --dgb-annotations $(word 3,$^) --c3-annotations $(word 4,$^) --sentences $(word 5,$^) --output-sentences $(basename $@).outsents --output $(basename $@).corpus
 
 .PRECIOUS: genmodel/cocopro.%.sentids
-genmodel/cocopro.%.sentids: scripts/segment_sentences.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
-	python3 $< --text $(word 2,$^) --output $@
+genmodel/cocopro.%.sentids: user-sentokenizer-location.txt $(shell cat user-sentokenizer-location.txt)/simple_sentence_tokenizer.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
+	python3 $(word 2,$^) --index --input $(word 3,$^) --output $@
+
+.PRECIOUS: genmodel/cocopro.%.sents
+genmodel/cocopro.%.sents: user-sentokenizer-location.txt $(shell cat user-sentokenizer-location.txt)/simple_sentence_tokenizer.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
+	python3 $(word 2,$^) --input $(word 3,$^) --output $@
 
 #.PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.dgb_data-20.1_100.corpus
