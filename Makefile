@@ -159,6 +159,14 @@ user-sentokenizer-location.txt:
 	@echo 'edit it to point at your tokenizer directory, and re-run make to continue!'
 	@echo ''
 
+#### location of sentence tokenizer
+user-modelblocks-location.txt:
+	echo '../modelblocks-repository/dundee' > $@
+	@echo ''
+	@echo 'ATTENTION: I had to create "$@" for you, which may be wrong'
+	@echo 'edit it to point at your modelblocks/dundee directory, and re-run make to continue!'
+	@echo ''
+
 ################################################################################
 #
 #  iv. Code compilation items
@@ -235,12 +243,23 @@ genmodel/cocopro.%.sentids: user-sentokenizer-location.txt $(shell cat user-sent
 	python3 $(word 2,$^) --index --input $(word 3,$^) --output $@
 
 .PRECIOUS: genmodel/cocopro.%.sents
-genmodel/cocopro.%.sents: user-sentokenizer-location.txt $(shell cat user-sentokenizer-location.txt)/simple_sentence_tokenizer.py $(shell cat user-dgb-location.txt)/data/annotator$$(word 1,$$(subst _, ,$$*))/$$(word 2,$$(subst _, ,$$*))
+# genmodel/cocopro.dgb_data.1_100.sents
+genmodel/cocopro.%.sents: user-sentokenizer-location.txt $(shell cat user-sentokenizer-location.txt)/simple_sentence_tokenizer.py $(shell cat user-dgb-location.txt)/data/annotator$$(subst .,,$$(word 1,$$(subst _, ,$$(suffix $$*))))/$$(word 2,$$(subst _, ,$$(suffix $$*)))
 	python3 $(word 2,$^) --input $(word 3,$^) --output $@
 
-.PRECIOUS: genmodel/cocopro.cats
-genmodel/cocopro.cats: scripts/grab_leaves.sed scripts/align_parsed_text.py parsing_data/cocopro.notok.sents parsing_data/cocopro.wsj02to21-gcg14-1671-5sm.fullberk.parsed.nol.linetrees
-	$(word 1, $^) $(word 4,$^) | python3 $(word 2,$^) --parsed - --sentences $(word 3,$^) --output $@
+.PRECIOUS: genmodel/cocopro.%.parsed
+# genmodel/cocopro.dgb_data.1_100.parsed
+genmodel/cocopro.%.parsed: user-modelblocks-location.txt user-tokenizer-location.txt $(shell cat user-modelblocks-location.txt)/bin/parser-fullberk $(shell cat user-tokenizer-location.txt)/ptb_tokenizer.sed parsing_data/wsj02to21.gcg14.1671.5sm.fullberk.model genmodel/cocopro.$$*.sents
+	cat $(word 6,$^) | $(word 4,$^) | $(word 3,$^) $(word 5,$^) | perl -pe 's/\+(?=[^\)]* )/\-/g'  |  perl -pe 's/^ *\( *//;s/ *\) *$//;s/-\d+ / /g;s/-l[^ )]* / /g' > $@
+
+#.PRECIOUS: genmodel/cocopro.%.cats
+#genmodel/cocopro.%.cats: scripts/grab_leaves.sed scripts/align_parsed_text.py parsing_data/cocopro.notok.sents parsing_data/cocopro.wsj02to21-gcg14-1671-5sm.fullberk.parsed.nol.linetrees
+#	$(word 1,$^) $(word 4,$^) | python3 $(word 2,$^) --parsed - --sentences $(word 3,$^) --output $@
+
+.PRECIOUS: genmodel/cocopro.%.cats
+# genmodel/cocopro.dgb_data.1_100.cats
+genmodel/cocopro.%.cats: scripts/grab_leaves.sed scripts/align_parsed_text.py genmodel/cocopro.$$*.sents genmodel/cocopro.$$*.parsed
+	$(word 1,$^) $(word 4,$^) | python3 $(word 2,$^) --parsed - --sentences $(word 3,$^) --output $@
 
 #.PRECIOUS: genmodel/cocopro.%.corpus
 # genmodel/cocopro.dgb_data-20.1_100.corpus
@@ -271,13 +290,13 @@ genmodel/cocopro.%.vecs: user-glove-location.txt $(shell cat user-glove-location
 
 .PRECIOUS: genmodel/cocopro.%.pcounts
 # genmodel/cocopro.dgb_data-20.100.pcounts
-genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).vecs
-	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --vectors $(word 5,$^) --output $@
+genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).cats
+	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --vectors $(word 5,$^) --categories $(word 6,$^) --output $@
 
-.PRECIOUS: %.pcounts
-# genmodel/cocopro.dgb_data-20.100.pcounts
-%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids $$*.topics $$(word 1,$$(subst -, ,%))$$(suffix $$*).vecs
-	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --vectors $(word 5,$^) --output $@
+#.PRECIOUS: %.pcounts
+## genmodel/cocopro.dgb_data-20.100.pcounts
+#%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids $$*.topics $$(word 1,$$(subst -, ,%))$$(suffix $$*).vecs
+#	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --vectors $(word 5,$^) --output $@
 
 #.PRECIOUS: %.model
 # basic model (trained on full corpus)
@@ -310,8 +329,8 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 .PRECIOUS: %.accuracy
 # accuracy on a subcorpus after training on all subcorpora *except* that subcorpus
 # genmodel/cocopro.dgb_data-20.100.accuracy
-%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids $$(word 1,$$(subst -, ,$$(basename %)))$$(suffix $$*).vecs
-	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --vectors $(word 6,$^) --output $@
+%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids $$(word 1,$$(subst -, ,$$(basename %)))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).cats
+	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --vectors $(word 6,$^) --categories $(word 7,$^) --output $@
 
 .PRECIOUS: %.totaccuracy
 # overall accuracy

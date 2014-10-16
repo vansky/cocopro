@@ -1,10 +1,12 @@
-#predict.py --model FILE --input FILE --topics FILE --sentences FILE --output FILE
+#predict.py --model FILE --input FILE --topics FILE --sentences FILE --vectors FILE --categories FILE --output FILE
 # uses a model to predict pronominalization in a test corpus
 # NB: could also run a regression to see how strongly each factor contributes
 #      model FILE is the probability model for computing the likelihood
 #      input FILE is the corpus to compute the likelihood over
 #      topics FILE is the topic model of the corpus of interest
 #      sentences FILE is the list of sentence boundaries in the corpus of interest
+#      vectors FILE contains a list (word/line) of dgb words and their distributed reps
+#      categories FILE contains a list (word/line) of dgb words and their associated syntactic categories
 #      output FILE designates where to write output
 
 from __future__ import division
@@ -122,6 +124,9 @@ with open(OPTS['topics'], 'r') as f:
 with open(OPTS['vectors'], 'r') as f:
   vectors = [l.strip() for l in f.readlines()]
 
+with open(OPTS['categories'], 'r') as f:
+  syncats = f.readlines()
+  
 with open(OPTS['sentences'], 'r') as f:
   sentlist = [int(s) for s in f.readlines() if s.strip() != '']
   #sentlist = pickle.load(f)
@@ -159,6 +164,7 @@ for e in corpus:
     sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
   ref_topic = topics[head_begin].split()[1]
+  ref_syncat = syncats[head_begin].split()[1]
   if ANT_VECTORS:
     ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:])
   else:
@@ -187,6 +193,9 @@ for e in corpus:
     options = combine_dicts(options, predict(model['pro_from_coh'], coh))
     options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+
+    options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat))
+    
     if SENT_VECTORS:
       options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
     else:
