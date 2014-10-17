@@ -78,6 +78,8 @@ vanschijndeletal13cmcl: dundee.wsj02to21-gcg12-fg-1671-3sm-bd.x-efabp.-c_-b2000_
 				dundee.wsj02to21-gcg12-fg-1671-3sm-bd.x-efabp.-c_-b2000_parsed.-nlLgRw.baselinecomparison
 ##################
 
+parse1: 
+
 ################################################################################
 #
 #  iii. User-specific parameter files (not shared; created by default with default values)
@@ -290,7 +292,7 @@ genmodel/cocopro.%.vecs: user-glove-location.txt $(shell cat user-glove-location
 
 .PRECIOUS: genmodel/cocopro.%.pcounts
 # genmodel/cocopro.dgb_data-20.100.pcounts
-genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).cats
+genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*)).1_$$(subst .,,$$(suffix $$*)).cats
 	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --vectors $(word 5,$^) --categories $(word 6,$^) --output $@
 
 #.PRECIOUS: %.pcounts
@@ -329,7 +331,7 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 .PRECIOUS: %.accuracy
 # accuracy on a subcorpus after training on all subcorpora *except* that subcorpus
 # genmodel/cocopro.dgb_data-20.100.accuracy
-%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids $$(word 1,$$(subst -, ,$$(basename %)))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).cats
+%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids $$(word 1,$$(subst -, ,$$(basename %)))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*)).1_$$(subst .,,$$(suffix $$*)).cats
 	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --vectors $(word 6,$^) --categories $(word 7,$^) --output $@
 
 .PRECIOUS: %.totaccuracy
