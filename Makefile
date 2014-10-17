@@ -78,7 +78,15 @@ vanschijndeletal13cmcl: dundee.wsj02to21-gcg12-fg-1671-3sm-bd.x-efabp.-c_-b2000_
 				dundee.wsj02to21-gcg12-fg-1671-3sm-bd.x-efabp.-c_-b2000_parsed.-nlLgRw.baselinecomparison
 ##################
 
-parse1: 
+parse1: $(foreach sect,$(shell seq 1 15),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse2: $(foreach sect,$(shell seq 16 30),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse3: $(foreach sect,$(shell seq 31 45),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse4: $(foreach sect,$(shell seq 46 60),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse5: $(foreach sect,$(shell seq 61 75),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse6: $(foreach sect,$(shell seq 76 90),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse7: $(foreach sect,$(shell seq 91 105),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse8: $(foreach sect,$(shell seq 106 120),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
+parse9: $(foreach sect,$(shell seq 121 135),genmodel/cocopro.dgb_data-20.1_$(sect).cats)
 
 ################################################################################
 #
