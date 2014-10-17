@@ -250,7 +250,7 @@ genmodel/cocopro.%.sents: user-sentokenizer-location.txt $(shell cat user-sentok
 .PRECIOUS: genmodel/cocopro.%.parsed
 # genmodel/cocopro.dgb_data.1_100.parsed
 genmodel/cocopro.%.parsed: user-modelblocks-location.txt user-tokenizer-location.txt $(shell cat user-modelblocks-location.txt)/bin/parser-fullberk $(shell cat user-tokenizer-location.txt)/ptb_tokenizer.sed parsing_data/wsj02to21.gcg14.1671.5sm.fullberk.model genmodel/cocopro.$$*.sents
-	cat $(word 6,$^) | $(word 4,$^) | $(word 3,$^) $(word 5,$^) | perl -pe 's/\+(?=[^\)]* )/\-/g'  |  perl -pe 's/^ *\( *//;s/ *\) *$//;s/-\d+ / /g;s/-l[^ )]* / /g' > $@
+	cat $(word 6,$^) | $(word 4,$^) | $(word 3,$^) $(word 5,$^) | perl -pe 's/\+(?=[^\)]* )/\-/g'  |  perl -pe 's/-l[^ )]* / /g' > $@
 
 #.PRECIOUS: genmodel/cocopro.%.cats
 #genmodel/cocopro.%.cats: scripts/grab_leaves.sed scripts/align_parsed_text.py parsing_data/cocopro.notok.sents parsing_data/cocopro.wsj02to21-gcg14-1671-5sm.fullberk.parsed.nol.linetrees
