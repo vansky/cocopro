@@ -21,10 +21,13 @@ import sys
 TEST = 'TEST'
 VERBOSE = False
 DEBUG = False
+USE_ANT = True
 ANT_VECTORS = False
+USE_SENT = True
 SENT_VECTORS = False
+USE_BI = True
 BI_VECTORS = False
-
+USE_SYNCAT = True
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -194,23 +197,27 @@ for e in corpus:
     options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
 
-    options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat))
-    
-    if SENT_VECTORS:
-      options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
-    else:
-      options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
-    if ANT_VECTORS:
-      options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
-    else:
-      options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
+    if USE_SYNCAT:
+      options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat))
+
+    if USE_SENT:
+      if SENT_VECTORS:
+        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
+      else:
+        options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    if USE_ANT:
+      if ANT_VECTORS:
+        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
+      else:
+        options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
       
     if DEBUG:
       sys.stderr.write('Before: '+str(options)+'\n')
-    if BI_VECTORS:
-      options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_bi'], bi_info))
-    else:
-      options = combine_dicts(options, predict(model['pro_from_bi'], bi_info))
+    if USE_BI:
+      if BI_VECTORS:
+        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_bi'], bi_info))
+      else:
+        options = combine_dicts(options, predict(model['pro_from_bi'], bi_info))
     if DEBUG:
       sys.stderr.write('After: '+str(options)+'\n')
       
