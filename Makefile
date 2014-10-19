@@ -339,7 +339,7 @@ genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst 
 .PRECIOUS: %.accuracy
 # accuracy on a subcorpus after training on all subcorpora *except* that subcorpus
 # genmodel/cocopro.dgb_data-20.100.accuracy
-%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids $$(word 1,$$(subst -, ,$$(basename %)))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*)).1_$$(subst .,,$$(suffix $$*)).cats
+%.accuracy: scripts/predict.py  $$(basename %)+$$(subst .,,$$(suffix $$*)).model $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).corpus %.topics $$(basename $$(basename %)).1_$$(subst .,,$$(suffix $$*)).sentids $$(word 1,$$(subst -, ,$$(basename %)))$$(suffix $$*).vecs $$(word 1,$$(subst -, ,%)).1_$$(subst .,,$$(suffix $$*)).cats
 	python3 $< --model $(word 2,$^) --input $(word 3,$^) --topics $(word 4,$^) --sentences $(word 5,$^) --vectors $(word 6,$^) --categories $(word 7,$^) --output $@
 
 .PRECIOUS: %.totaccuracy
