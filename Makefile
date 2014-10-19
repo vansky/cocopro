@@ -299,9 +299,10 @@ genmodel/cocopro.%.vecs: user-glove-location.txt $(shell cat user-glove-location
 	python3 $(word 3,$^) --vectors $(word 2,$^) --text $(word 4,$^) > $@
 
 .PRECIOUS: genmodel/cocopro.%.pcounts
+.PRECIOUS: genmodel/cocopro.%.regtable
 # genmodel/cocopro.dgb_data-20.100.pcounts
-genmodel/cocopro.%.pcounts: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*)).1_$$(subst .,,$$(suffix $$*)).cats
-	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --sentences $(word 3,$^) --vectors $(word 5,$^) --categories $(word 6,$^) --output $@
+genmodel/cocopro.%.pcounts genmodel/cocopro.%.regtable: scripts/calc_pcounts.py genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).corpus genmodel/cocopro.1_$$(subst .,,$$(suffix $$*)).sentids genmodel/cocopro.$$*.topics genmodel/cocopro.$$(word 1,$$(subst -, ,$$*))$$(suffix $$*).vecs genmodel/cocopro.$$(word 1,$$(subst -, ,$$*)).1_$$(subst .,,$$(suffix $$*)).cats
+	python3 $< --coco-corpus $(word 2,$^) --topics $(word 4,$^) --regression genmodel/cocopro.$*.regtable --sentences $(word 3,$^) --vectors $(word 5,$^) --categories $(word 6,$^) --output genmodel/cocopro.$*.pcounts
 
 #.PRECIOUS: %.pcounts
 ## genmodel/cocopro.dgb_data-20.100.pcounts

@@ -148,6 +148,7 @@ combined_pro_from_top = {}
 combined_pro_from_sent = {}
 combined_pro_from_sentpos = {}
 combined_pro_from_ant = {}
+combined_pro_from_ant_syncat = {}
 combined_pro_from_bi = {}
 combined_pro_from_ref_syncat = {}
 combined_ref_from_coh = {}
@@ -172,6 +173,7 @@ for fname in input_names:
   combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
   combined_pro_from_sentpos = combine_dicts(combined_pro_from_sentpos, pcounts['pro_from_sentpos'])
   combined_pro_from_ant = combine_dicts(combined_pro_from_ant, pcounts['pro_from_ant'])
+  combined_pro_from_ant_syncat = combine_dicts(combined_pro_from_ant_syncat, pcounts['pro_from_ant_syncat'])
   combined_pro_from_bi = combine_dicts(combined_pro_from_bi, pcounts['pro_from_bi'])
   combined_pro_from_ref_syncat = combine_dicts(combined_pro_from_ref_syncat, pcounts['pro_from_ref_syncat'])
 
@@ -216,7 +218,7 @@ if ADD_PSEUDO:
   else:
     combined_pro_from_sent = add_pseudocounts(combined_pro_from_sent, combined_pro_counts)
 
-  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_ref_syncat, combined_pro_from_sentpos):
+  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_ref_syncat, combined_pro_from_sentpos, combined_pro_from_ant_syncat):
     d = add_pseudocounts(d, combined_pro_counts)
   for d in (combined_ref_from_coh, combined_ref_from_top):
     d = add_pseudocounts(d)
@@ -228,6 +230,7 @@ prob_dict['pro_from_top'] = normalize_probs(combined_pro_from_top) #P(pro|top)
 prob_dict['pro_from_sent'] = normalize_probs(combined_pro_from_sent) #P(pro|sent)
 prob_dict['pro_from_sentpos'] = normalize_probs(combined_pro_from_sentpos) #P(pro|sentpos)
 prob_dict['pro_from_ant'] = normalize_probs(combined_pro_from_ant) #P(pro|ant)
+prob_dict['pro_from_ant_syncat'] = normalize_probs(combined_pro_from_ant_syncat) #P(pro|ant_syncat)
 prob_dict['pro_from_bi'] = normalize_probs(combined_pro_from_bi) #P(pro|bi)
 prob_dict['pro_from_ref_syncat'] = normalize_probs(combined_pro_from_ref_syncat) #P(pro|ref_syncat)
 prob_dict['ref_from_coh'] = normalize_probs(combined_ref_from_coh) #P(ref|coh)

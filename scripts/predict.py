@@ -26,6 +26,7 @@ DEBUG = False
 USE_COH = 1 #coherence relation
 USE_TOP = 1 #topic assignment
 USE_ANT = 1 #antecedent token
+USE_ANT_SYNCAT = 1 #antecedent syntactic category
 USE_SENT = 1 #first token of sentence
 USE_SENTPOS = 1 #sentence position of PRO
 USE_BI = 1 #preceding (bigram prefix) token
@@ -182,6 +183,7 @@ for e in corpus:
   sentpos = e['SENTPOS']
   ref_topic = topics[head_begin].split()[1]
   ref_syncat = syncats[head_begin].split()[1]
+  ant_syncat = syncats[e['ANTECEDENT_HEAD'][0]].split()[1]
   if ANT_VECTORS:
     ant_info = ' '.join(vectors[e['ANTECEDENT_HEAD'][0]].split()[1:])
   else:
@@ -223,6 +225,8 @@ for e in corpus:
 
     if USE_SYNCAT:
       options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat))
+    if USE_ANT_SYNCAT:
+      options = combine_dicts(options, predict(model['pro_from_ant_syncat'], ant_syncat))
 
     if USE_SENT:
       if SENT_VECTORS:

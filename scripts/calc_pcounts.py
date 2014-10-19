@@ -97,6 +97,7 @@ pro_from_top = {} # { [topic] : { [pro] : [counts] } }
 pro_from_sent = {} # { [sent] : { [pro] : [counts] } }
 pro_from_sentpos = {} # { [sentpos] : { [pro] : [counts] } }
 pro_from_ant = {} # { [ant] : { [pro] : [counts] } }
+pro_from_ant_syncat = {} # { [ant_syncat] : { [pro] : [counts] } }
 pro_from_bi = {} # { [bi] : { [pro] : [counts] } }
 pro_from_ref_syncat = {} # { [syncat] : { [pro] : [counts] } }
 
@@ -105,10 +106,14 @@ ref_from_top = {} # { [topic] : { [ref] : [counts] } }
 
 s_from_top = {} # { [topic] : { [word] : [counts] } }
 
+regtab = [] #an output table to regress feature weights to
+
+regtab.append('pro coh ref_id sentpos sent_info ref_topic ant_info bi_info ref_syncat ant_syncat'+'\n')
+
 for e in coco_corpus:
   #coco_corpus.dict_keys(['ANTECEDENT_SPAN', 'ENTITY_ID', 'SENTPOS', 'SPAN' : (277, 299), 'PRO', 'COHERENCE', 'CONTEXT', 'HEAD', 'ANTECEDENT_HEAD'])
   #NB: currently, ref is the sentence position of the antecedent, but we may want to make ref a *distribution over positions* which is sampled from to get the antecedent
-  ref = str(e['ENTITY_ID'])
+  ref_id = str(e['ENTITY_ID'])
 #  topic_list = {}
 #  for tix in range(e['SPAN'][0],e['SPAN'][1]):
 #    #determine the topic of the head
@@ -155,6 +160,7 @@ for e in coco_corpus:
     bi_info = topics[head_begin - 1].split()[0]
 
   ref_syncat = syncats[head_begin].split()[1]
+  ant_syncat = syncats[e['ANTECEDENT_HEAD'][0]].split()[1]
   
     ### DEBUG
 #    output = []
@@ -208,9 +214,9 @@ for e in coco_corpus:
     raise #undefined collapse value
   pro_counts[pro] = pro_counts.get(pro,0) + 1
   
-  if ref not in pro_from_ref:
-    pro_from_ref[ref] = {}
-  pro_from_ref[ref][pro] = pro_from_ref[ref].get(pro,0) + 1
+  if ref_id not in pro_from_ref:
+    pro_from_ref[ref_id] = {}
+  pro_from_ref[ref_id][pro] = pro_from_ref[ref_id].get(pro,0) + 1
   if sentpos not in pro_from_sentpos:
     pro_from_sentpos[sentpos] = {}
   pro_from_sentpos[sentpos][pro] = pro_from_sentpos[sentpos].get(pro,0) + 1
@@ -232,7 +238,13 @@ for e in coco_corpus:
   if ref_syncat not in pro_from_ref_syncat:
     pro_from_ref_syncat[ref_syncat] = {}
   pro_from_ref_syncat[ref_syncat][pro] = pro_from_ref_syncat[ref_syncat].get(pro,0) + 1
+  if ant_syncat not in pro_from_ant_syncat:
+    pro_from_ant_syncat[ant_syncat] = {}
+  pro_from_ant_syncat[ant_syncat][pro] = pro_from_ant_syncat[ant_syncat].get(pro,0) + 1
 
+  #update regression table to determine feature weights
+  regtab.append(' '.join([str(pro),str(coh),str(ref_id),str(sentpos),str(sent_info),str(ref_topic),str(ant_info),str(bi_info),str(ref_syncat),str(ant_syncat)])+'\n')
+  
 
   #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
   POSS_REFS = 100
@@ -240,11 +252,11 @@ for e in coco_corpus:
     ref_from_coh[coh] = {}
     for i in range(POSS_REFS):
       ref_from_coh[coh][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
-  ref_from_coh[coh][ref] += 1
+  ref_from_coh[coh][ref_id] += 1
   #### DEBUG
   if VERBOSE:
-    if int(ref) <= 35:
-      output = [ref+': ']
+    if int(ref_id) <= 35:
+      output = [ref_id+': ']
       for i in range(head_begin - e['SENTPOS'],head_begin):
         output.append(topics[i].split()[0])
       output.append('[')
@@ -259,7 +271,7 @@ for e in coco_corpus:
     ref_from_top[ref_topic] = {}
     for i in range(POSS_REFS):
       ref_from_top[ref_topic][str(i)] = 1.0/POSS_REFS #i might need to be cast as string
-  ref_from_top[ref_topic][ref] += 1
+  ref_from_top[ref_topic][ref_id] += 1
 
   sent_info_prior = 1.0/1000
   if sent_topic not in s_from_top: #NB: possible...? no idea, so let's say 1/1000?
@@ -328,7 +340,7 @@ if ADD_PSEUDO:
 #Possible values for COH:
 #  127: ['elab-det-time-org-num', 'elab-num-pers-det', 'elab-loc', 'elab-det-num-pers-org', 'elab-det-loc-org-time', 'elab-loc-pers', 'elab', 'elab-time-pers-loc', 'elab-det-org-num-time', 'elab-pers-time-loc', 'elab-det-pers', 'elab-det-time-org', 'elab-pers-det', 'elab-pers-org-det', 'elab-pers-det-org-time-num', 'elab-num-time', 'elab-det-num-time', 'elab-det-time-pers', 'elab-det-loc-num-org', 'elab-det-num-pers-org-loc-time', 'elab-pers-loc', 'gen', 'elab-pers-det-time-num', 'attr', 'elab-time', 'elab-time-num', 'elab-det-num-loc-time', '-1', 'elab-det-pers-time-org', 'elab-pers-org', 'elab-det-time-org-pers', 'elab-org-pers-det', 'elab-loc-det', 'elab-pers-num', 'elab-det-org-pers', 'elab-det-num', 'elab-det-time-loc', 'elab-time-det-num', 'elab-det-num-pers', 'elab-pers-time', 'elab-det-pers-time', 'elab-det-pers-org-time-num', 'elab-det-pers-loc-org', 'contrast', 'elab-num-pers', 'elab-det-org-loc', 'elab-org', 'elab-det-num-loc', 'elab-det-num-pers-time', 'elab-org-num', 'elab-det-pers-loc', 'elab-det-org-num', 'elab-det-pers-org-time', 'elab-org-time', 'elab-pers-loc-num', 'elab-loc-org-num', 'elab-det-time-num-org-loc-pers', 'elab-pers-loc-time', 'contr', 'elab-time-org', 'elab-det', 'elab-det-pers-org-num', 'elab-loc-time-det', 'elab-det-org-time-num-pers', 'elab-det-pers-time-loc', 'ce', 'elab-pers-det-loc', 'elab-det-pers-num-org', 'elab-dec-loc-pers', 'elab-det-num-org-loc', 'elab-per', 'elab-det-time', 'elab-det-pers-org', 'elab-detg', 'elab-org-det', 'elab-det-loc-num', 'elab-det-pers-org-loc', 'elab-time-loc', 'elab-det-loc-org-num', 'elab-time-num-det', 'elab-org-pers', 'elab-time-det-loc', 'elab-det-loc-org', 'elab-num-time-det', 'elab-det-pers-org-num-loc', 'elab-num-loc-org-pers', 'elab-pers-time-org', 'elab-loc-org', 'elab-det-org-loc-pers', 'temp', 'expv', 'elab-det-time-num-org', 'elab-det-pers-loc-org-num-time', 'elab-det-pers-loc-time-org', 'elab-det-loc-pers-time', 'elab-time-det', 'elab-pers-org-loc', 'elab-det-time-loc-org', 'elab-loc-det-pers', 'elab-num', 'cond', 'elab-det-pers-num', 'elab-num-loc-det', 'elab-time-det-org-pers', 'elab-pers-det-time', 'par', 'elab-loc-org-pers-det', 'same', 'elab-det-pers-time-num', 'examp', 'elab-det-loc-time', 'elab-det-loc', 'elab-det-loc-pers', 'elab-num-org-time', 'elab-pers', 'elab-det-org', 'elab-det-org-time-loc-num-pers', 'elab-det-pers-loc-time', 'elab-det-num-org', 'parallel', 'elab-num-loc-pers-det', 'elab-det-time-pers-num', 'elab-det-num-time-loc', 'elab-num-det-pers', 'elab-det-num-pers-loc', 'elab-num-loc-det-pers', 'elab-det-time-num']
 pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent, 'pro_from_ant':pro_from_ant,\
-             'pro_from_bi':pro_from_bi, 'pro_from_ref_syncat':pro_from_ref_syncat, 'pro_from_sentpos':pro_from_sentpos, \
+             'pro_from_bi':pro_from_bi, 'pro_from_ref_syncat':pro_from_ref_syncat, 'pro_from_ant_syncat':pro_from_ant_syncat, 'pro_from_sentpos':pro_from_sentpos, \
              'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
              's_from_top':s_from_top}
 topic_counts = {}
@@ -337,6 +349,9 @@ for t in topics:
   topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
 #pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
 pcounts.update({'topic': topic_counts, 'coh': coh_counts, 'pro': pro_counts})
+with open(OPTS['regression'], 'w') as f:
+  for l in regtab:
+    f.write(l)
 with open(OPTS['output'], 'wb') as f:
   # pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent,
   # ref_from_coh, ref_from_top, s_from_top,
