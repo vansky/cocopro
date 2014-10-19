@@ -23,12 +23,13 @@ VERBOSE = False
 DEBUG = False
 
 # Tells what features to use during test time; At least one must be set to True
-USE_COH = True #coherence relation
-USE_TOP = True #topic assignment
-USE_ANT = True #antecedent token
-USE_SENT = True #first token of sentence
-USE_BI = True #preceding (bigram prefix) token
-USE_SYNCAT = True #syntactic (GCG14) category
+USE_COH = 1 #coherence relation
+USE_TOP = 1 #topic assignment
+USE_ANT = 1 #antecedent token
+USE_SENT = 1 #first token of sentence
+USE_SENTPOS = 1 #sentence position of PRO
+USE_BI = 1 #preceding (bigram prefix) token
+USE_SYNCAT = 1 #syntactic (GCG14) category
 
 # Tells which features should exist in vector space during test time; All can be False
 ANT_VECTORS = False
@@ -178,6 +179,7 @@ for e in corpus:
   else:
     sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
+  sentpos = e['SENTPOS']
   ref_topic = topics[head_begin].split()[1]
   ref_syncat = syncats[head_begin].split()[1]
   if ANT_VECTORS:
@@ -227,6 +229,8 @@ for e in corpus:
         options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
       else:
         options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    if USE_SENTPOS:
+      options = combine_dicts(options, predict(model['pro_from_sentpos'], sentpos))
     if USE_ANT:
       if ANT_VECTORS:
         options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
