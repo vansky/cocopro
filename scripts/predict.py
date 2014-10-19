@@ -30,10 +30,13 @@ USE_SENT = True #first token of sentence
 USE_BI = True #preceding (bigram prefix) token
 USE_SYNCAT = True #syntactic (GCG14) category
 
-#Tells which features should exist in vector space during test time; All can be False
+# Tells which features should exist in vector space during test time; All can be False
 ANT_VECTORS = False
 SENT_VECTORS = False
 BI_VECTORS = False
+
+# Tells how to collapse PRO (0 means uncollapsed)
+COLLAPSE_PRO = 2
 
 #Storage for results
 proresults = {} #how well can we predict PROtype?
@@ -185,8 +188,16 @@ for e in corpus:
     bi_info = ' '.join(vectors[head_begin - 1].split()[1:])
   else:
     bi_info = topics[head_begin - 1].split()[0]
-  
-  pro = e['TYPE']
+
+  if COLLAPSE_PRO == 0:
+    pro = e['TYPE']
+  elif COLLAPSE_PRO == 2:
+    if e['TYPE'] in ['WHQ','PRO']:
+      pro = 'PRO'
+    else:
+      pro = 'OTHER'
+  else:
+    raise #undefined collapse specification
 
   likelihood = 0
 

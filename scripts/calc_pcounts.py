@@ -19,6 +19,8 @@ ANT_VECTORS = False #uses distributed representation of antecedent
 SENT_VECTORS = False #uses distributed representation of sentence
 BI_VECTORS = False #uses distributed representation of bigram context
 
+COLLAPSE_PRO = 2 # how should pro values be collapsed (0 = uncollapsed)
+
 OPTS = {}
 for aix in range(1,len(sys.argv)):
   if len(sys.argv[aix]) < 2 or sys.argv[aix][:2] != '--':
@@ -193,7 +195,15 @@ for e in coco_corpus:
 
   #binary pro
 #  pro = str(topics[head_begin].split()[0].lower() in PRONOUNS) #possible: 'True', 'False'
-  pro = e['TYPE'] #mention type
+  if COLLAPSE_PRO == 0:
+    pro = e['TYPE'] #mention type
+  elif COLLAPSE_PRO == 2:
+    if e['TYPE'] in ['WHQ','PRO']:
+      pro = 'PRO'
+    else:
+      pro = 'OTHER'
+  else:
+    raise #undefined collapse value
   pro_counts[pro] = pro_counts.get(pro,0) + 1
   
   if ref not in pro_from_ref:
