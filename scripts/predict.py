@@ -253,7 +253,6 @@ for e in corpus:
   proresults[pro][1] += 1
   if best == pro:
     hits += 1
-  else:
     proresults[pro][0] += 1
 
 if VERBOSE:
