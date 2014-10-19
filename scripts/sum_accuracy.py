@@ -5,28 +5,29 @@ from __future__ import division
 import re
 import sys
 
-reacc = re.compile('(\d*)/(\d*)=([01]\.\d*)$')
+reacc = re.compile('^([A-Za-z]*): (\d*)/(\d*)$')
 
-hits = 0  #total successful hits across all testsets
-total = 0 #total potential hits across all testsets
-ave = 0.0  #average accuracy on each testset (as opposed to per test item)
-avemod = 0 #modifier to make the average ignore testsets with 0 entities
-acclist = [] #a list of the accuracies for each test set #for coarse statistical testing
+results = {}
 
 for aix in range(1,len(sys.argv)):
   with open(sys.argv[aix], 'r') as f:
-    line = reacc.search(f.readline().strip())
-    if not line:
-      #we must have found a comment line rather than an accuracy report, so try the next line
-      line = reacc.search(f.readline().strip())
-    hits += int(line.group(1))
-    total += int(line.group(2))
-    acc = float(line.group(3))
+    for rawline in f.readlines():
+      line = reacc.match(rawline.strip())
+      if not line:
+        #we must have found a comment line rather than an accuracy report, so try the next line
+        continue
+      label = line.group(1)
+      if label not in results:
+        results[label] = [0,0]
+      results[label][0] += int(line.group(2))
+      results[label][1] += int(line.group(3))
 
-    if acc != 0.0:
-      acclist.append(acc)
-      ave += acc
-    else:
-      avemod += 1
-sys.stdout.write('Accuracy: '+str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
-sys.stdout.write('Test set accuracies: '+str(acclist)+'\n')
+sys.stdout.write('Total Accuracy: '+str(results['Total'][0])+'/'+str(results['Total'][1])+'='+str(results['Total'][0]/results['Total'][1])+'\n')
+for l in results:
+  if l == "Total":
+    #we output the total accuracy first
+    continue
+  if results[l][1] == 0:
+    sys.stdout.write(l+' Accuracy: '+str(results[l][0])+'/'+str(results[l][1])+'='+str(0.0)+'\n')
+  else:
+    sys.stdout.write(l+' Accuracy: '+str(results[l][0])+'/'+str(results[l][1])+'='+str(results[l][0]/results[l][1])+'\n')

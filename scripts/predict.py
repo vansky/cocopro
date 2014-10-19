@@ -21,15 +21,22 @@ import sys
 TEST = 'TEST'
 VERBOSE = False
 DEBUG = False
-USE_COH = True
-USE_TOP = True
-USE_ANT = True
+
+# Tells what features to use during test time; At least one must be set to True
+USE_COH = True #coherence relation
+USE_TOP = True #topic assignment
+USE_ANT = True #antecedent token
+USE_SENT = True #first token of sentence
+USE_BI = True #preceding (bigram prefix) token
+USE_SYNCAT = True #syntactic (GCG14) category
+
+#Tells which features should exist in vector space during test time; All can be False
 ANT_VECTORS = False
-USE_SENT = True
 SENT_VECTORS = False
-USE_BI = True
 BI_VECTORS = False
-USE_SYNCAT = True
+
+#Storage for results
+proresults = {} #how well can we predict PROtype?
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -241,24 +248,21 @@ for e in corpus:
       sys.stderr.write('Best answer: '+str(best)+'\n')
 
   total += 1
+  if pro not in proresults:
+    proresults[pro] = [0,0]
+  proresults[pro][1] += 1
   if best == pro:
     hits += 1
+  else:
+    proresults[pro][0] += 1
 
-if total != 0:
-  if VERBOSE:
-    sys.stderr.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
-  with open(OPTS['output'], 'w') as f:
-    if TEST == 'TEST':
-      f.write('Testing actual model predictions\n')
-    else:
-      f.write('Forcing baseline model to answer with most likely answer\n')
-    f.write(str(hits)+'/'+str(total)+'='+str(hits/total)+'\n')
-else:
-  if VERBOSE:
-    sys.stderr.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')
-  with open(OPTS['output'], 'w') as f:
-    if TEST == 'TEST':
-      f.write('Testing actual model predictions\n')
-    else:
-      f.write('Forcing baseline model to answer with most likely answer\n')
-    f.write(str(hits)+'/'+str(total)+'='+str(0.0)+'\n')
+if VERBOSE:
+  sys.stderr.write(str(hits)+'/'+str(total)+'\n')
+with open(OPTS['output'], 'w') as f:
+  if TEST == 'TEST':
+    f.write('Testing actual model predictions\n')
+  else:
+    f.write('Forcing baseline model to answer with most likely answer\n')
+  f.write('Total: '+str(hits)+'/'+str(total)+'\n')
+  for pro in proresults:
+    f.write(pro+': '+str(proresults[pro][0])+'/'+str(proresults[pro][1])+'\n')
