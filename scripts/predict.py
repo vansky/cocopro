@@ -21,6 +21,8 @@ import sys
 TEST = 'TEST'
 VERBOSE = False
 DEBUG = False
+USE_COH = True
+USE_TOP = True
 USE_ANT = True
 ANT_VECTORS = False
 USE_SENT = True
@@ -193,8 +195,10 @@ for e in corpus:
   if TEST == 'TEST':
     options = {}
     #options = combine_dicts(options, predict(model['pro_from_ref'], ref))
-    options = combine_dicts(options, predict(model['pro_from_coh'], coh))
-    options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
+    if USE_COH:
+      options = combine_dicts(options, predict(model['pro_from_coh'], coh))
+    if USE_TOP:
+      options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
 
     if USE_SYNCAT:
