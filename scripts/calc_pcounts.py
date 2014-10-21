@@ -1,10 +1,11 @@
-#calc_pcounts.py --coco-corpus FILE --topics FILE --sentences FILE --vectors FILE --categories FILE --output FILE
+#calc_pcounts.py --coco-corpus FILE --topics FILE --sentences FILE --vectors FILE --categories FILE --regression FILE --output FILE
 # outputs counts from topics, coref, and coherence data for probability computations
 #      coco-corpus FILE is the (pickled) aligned dgb/c3 corpus
 #      topics FILE contains words from the DGB with associated topic assignments
 #      sentences FILE contains a list of the sentence boundary indices from dgb
 #      vectors FILE contains a list (word/line) of dgb words and their distributed reps
 #      categories FILE contains a list (word/line) of dgb words and their associated syntactic categories
+#      regression FILE contains a list of all obs attributes for use in regression
 #      output FILE designates where to write output; '-' designates stdin
 
 from __future__ import division
@@ -108,8 +109,16 @@ s_from_top = {} # { [topic] : { [word] : [counts] } }
 
 regtab = [] #an output table to regress feature weights to
 
-regtab.append('pro coh ref_id sentpos sent_info ref_topic ant_info bi_info ref_syncat ant_syncat'+'\n')
-
+# regtab.append('pro coh ref_id sentpos sent_info ref_topic ant_info bi_info ref_syncat ant_syncat'+'\n')
+# pro = str
+# coh = str
+# ref_id = str
+# sentpos = int
+# sent_info = str
+# ref_topic = str
+# ant_info = str
+# bi_info = str
+# x_syncat = str
 for e in coco_corpus:
   #coco_corpus.dict_keys(['ANTECEDENT_SPAN', 'ENTITY_ID', 'SENTPOS', 'SPAN' : (277, 299), 'PRO', 'COHERENCE', 'CONTEXT', 'HEAD', 'ANTECEDENT_HEAD'])
   #NB: currently, ref is the sentence position of the antecedent, but we may want to make ref a *distribution over positions* which is sampled from to get the antecedent
@@ -243,7 +252,16 @@ for e in coco_corpus:
   pro_from_ant_syncat[ant_syncat][pro] = pro_from_ant_syncat[ant_syncat].get(pro,0) + 1
 
   #update regression table to determine feature weights
-  regtab.append(' '.join([str(pro),str(coh),str(ref_id),str(sentpos),str(sent_info),str(ref_topic),str(ant_info),str(bi_info),str(ref_syncat),str(ant_syncat)])+'\n')
+  regtab.append({'pro':pro,
+                 'coh':coh,
+                 'ref_id':ref_id,
+                 'sentpos':int(sentpos),
+                 'sent_info':sent_info,
+                 'ref_topic':ref_topic,
+                 'ant_info':ant_info,
+                 'bi_info':bi_info,
+                 'ref_syncat':ref_syncat,
+                 'ant_syncat':ant_syncat })
   
 
   #NB: for now, ref is an observed variable (ref sentpos), but I really think it'd be better if it was a latent variable that generated the observed ref sentpos
@@ -349,9 +367,8 @@ for t in topics:
   topic_counts[mytopic] = topic_counts.get(mytopic, 0) + 1
 #pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
 pcounts.update({'topic': topic_counts, 'coh': coh_counts, 'pro': pro_counts})
-with open(OPTS['regression'], 'w') as f:
-  for l in regtab:
-    f.write(l)
+with open(OPTS['regression'], 'wb') as f:
+  pickle.dump(regtab,f)
 with open(OPTS['output'], 'wb') as f:
   # pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent,
   # ref_from_coh, ref_from_top, s_from_top,

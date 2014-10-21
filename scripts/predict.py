@@ -24,13 +24,13 @@ DEBUG = False
 
 # Tells what features to use during test time; At least one must be set to True
 USE_COH = 1 #coherence relation
-USE_TOP = 1 #topic assignment
-USE_ANT = 1 #antecedent token
+USE_TOP = 0 #topic assignment
+USE_ANT = 0 #antecedent token
 USE_ANT_SYNCAT = 1 #antecedent syntactic category
-USE_SENT = 1 #first token of sentence
-USE_SENTPOS = 1 #sentence position of PRO
-USE_BI = 1 #preceding (bigram prefix) token
-USE_SYNCAT = 1 #syntactic (GCG14) category
+USE_SENT = 0 #first token of sentence
+USE_SENTPOS = 0 #sentence position of PRO
+USE_BI = 0 #preceding (bigram prefix) token
+USE_SYNCAT = 0 #syntactic (GCG14) category
 
 # Tells which features should exist in vector space during test time; All can be False
 ANT_VECTORS = False
