@@ -368,7 +368,7 @@ for t in topics:
 #pcounts.update({'sent': sent_counts, 'topic': topic_counts, 'coh': coh_counts})
 pcounts.update({'topic': topic_counts, 'coh': coh_counts, 'pro': pro_counts})
 with open(OPTS['regression'], 'wb') as f:
-  pickle.dump(regtab,f)
+  pickle.dump(regtab,f,protocol=2) #the sklearn stuff is only installed for python2.X on the servers
 with open(OPTS['output'], 'wb') as f:
   # pro_from_ref, pro_from_coh, pro_from_top, pro_from_sent,
   # ref_from_coh, ref_from_top, s_from_top,
