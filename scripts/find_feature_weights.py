@@ -88,7 +88,7 @@ clean_coefs = {} #convert out of the onehot encoding for categorial features
 fixmod = 0
 for fix in range(len(feature_names)):
   if fix in omit_ix:
-    #need to skip the (now-missing) dependent variable column name
+    #need to skip the (now-missing) omitted variable columns
     fixmod -= 1
     continue
     #sys.stdout.write(str(feature_names[fix+1])+': '+str(svm_classifier.coef_[0][fix])+'\n')
@@ -98,5 +98,8 @@ for fix in range(len(feature_names)):
   #sys.stderr.write(str(feature_names[fix])+'\n')
   clean_name = feature_names[fix].split('=')[0]
   clean_coefs[clean_name] = clean_coefs.get(clean_name, 0) + svm_classifier.coef_[0][fix+fixmod]**2 #find the length of the categorial coef vector
+total = sum(math.sqrt(c) for c in clean_coefs.values())
+newtotal = 0
 for coef in clean_coefs:
-  sys.stdout.write(str(coef)+': '+str(math.sqrt(clean_coefs[coef]))+'\n')
+  sys.stdout.write(str(coef)+': '+str(math.sqrt(clean_coefs[coef])/total)+'\n') #output normalized weights
+  #sys.stdout.write(str(coef)+': '+str(math.sqrt(clean_coefs[coef]))+'\n') #output raw coefficients
