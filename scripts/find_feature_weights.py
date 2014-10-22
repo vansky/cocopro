@@ -11,6 +11,7 @@ import sys
 
 DEP_VAL = "pro" #dependent variable to regress to when determining weights
 OMIT_VALS = ["ref_id"] #features to omit when determining feature weights
+#OMIT_VALS = ["ref_id","sentpos","coh","ant_syncat","ant_info","ref_topic"] #features to omit when determining feature weights
 RANDOM_SEED = 37 #None yields random initialization
 
 #OPTS = {}
@@ -32,7 +33,8 @@ for infile in sys.argv[1:]:
 #since all categorial values are one hot, each vector associated w/ a feature is FEATURE=X, so ensure the entire feature name should be omitted
 DEP_VAL = DEP_VAL + '='
 for i,v in enumerate(OMIT_VALS):
-  OMIT_VALS[i] = OMIT_VALS[i]+'='
+  if v not in ['sentpos']: #don't worry about non-categorial variables
+    OMIT_VALS[i] = OMIT_VALS[i]+'='
 
 #suck the input dict lists in, encode categorial variables as one-hot, and store as a scipy.sparse matrix of [obs][feature_vec_element]
 myobs = DictVectorizer()

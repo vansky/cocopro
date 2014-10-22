@@ -1,6 +1,5 @@
 #predict.py --model FILE --input FILE --topics FILE --sentences FILE --vectors FILE --categories FILE --output FILE
 # uses a model to predict pronominalization in a test corpus
-# NB: could also run a regression to see how strongly each factor contributes
 #      model FILE is the probability model for computing the likelihood
 #      input FILE is the corpus to compute the likelihood over
 #      topics FILE is the topic model of the corpus of interest
@@ -24,21 +23,56 @@ DEBUG = False
 
 # Tells what features to use during test time; At least one must be set to True
 USE_COH = 1 #coherence relation
-USE_TOP = 0 #topic assignment
-USE_ANT = 0 #antecedent token
+USE_TOP = 1 #topic assignment
+USE_ANT = 1 #antecedent token
 USE_ANT_SYNCAT = 1 #antecedent syntactic category
-USE_SENT = 0 #first token of sentence
-USE_SENTPOS = 0 #sentence position of PRO
-USE_BI = 0 #preceding (bigram prefix) token
-USE_SYNCAT = 0 #syntactic (GCG14) category
+USE_SENT = 1 #first token of sentence
+USE_SENTPOS = 1 #sentence position of PRO
+USE_BI = 1 #preceding (bigram prefix) token
+USE_SYNCAT = 1 #syntactic (GCG14) category
+
+# Tells how to collapse PRO (0 means uncollapsed)
+COLLAPSE_PRO = 0
+
+# Tells the model to use regression weights (obtained from genmodel/*regtables)
+USE_WEIGHTS = 0
+###
+#10-class
+###
+#Full Model
+WEIGHTS = {'ref_topic': 0.00666626210126,
+           'ant_syncat': 0.0200567706199,
+           'sentpos': 0.00122216836002,
+           'ref_syncat': 0.740686157874,
+           'sent_info': 0.0228712082297,
+           'bi_info': 0.0294790422769,
+           'ant_info': 0.16291055631,
+           'coh': 0.0161078342276 }
+#WEIGHTS = { 'ref_syncat': 0.0986255020389,
+#            'sent_info': 0.0992567905501,
+#            'bi_info': 0.802117707411 }
+
+###
+#BINARY
+###
+#Full Model
+#WEIGHTS = {'ref_topic': 0.0496257879026,
+#           'ant_syncat': 0.0340216454766,
+#           'sentpos': 0.0045892626512,
+#           'ref_syncat': 0.373785189945,
+#           'sent_info': 0.126916850703,
+#           'bi_info': 0.20357637105,
+#           'ant_info': 0.139158061098,
+#           'coh': 0.068326831174 }
+#WEIGHTS = {'ref_syncat': 0.142033138804,
+#           'sent_info': 0.389173236236,
+#           'bi_info': 0.46879362496 }
+
 
 # Tells which features should exist in vector space during test time; All can be False
 ANT_VECTORS = False
 SENT_VECTORS = False
 BI_VECTORS = False
-
-# Tells how to collapse PRO (0 means uncollapsed)
-COLLAPSE_PRO = 2
 
 #Storage for results
 proresults = {} #how well can we predict PROtype?
@@ -83,16 +117,22 @@ def get_prob(indict, keya, keyb):
       #both keys are of an open class
       return(indict['-1']['-1'])
 
-def combine_dicts(global_dict,local_dict):
+def combine_dicts(global_dict,local_dict,weight_key):
   #combines logprobs from a local_dict with those in a global_dict
   for topkey in local_dict:
     if type(local_dict[topkey]) == type({}):
       if topkey not in global_dict:
         global_dict[topkey] = {}
       for lowkey in local_dict[topkey]:
-        global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
+        if USE_WEIGHTS:
+          global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + (1-WEIGHTS[weight_key])*local_dict[topkey][lowkey]+.5*local_dict[topkey][lowkey]
+        else:
+          global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
     else:
-      global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
+      if USE_WEIGHTS:
+        global_dict[topkey] = global_dict.get(topkey, 0) + (1-WEIGHTS[weight_key])*local_dict[topkey]+local_dict[topkey]
+      else:
+        global_dict[topkey] = global_dict.get(topkey, 0) + .5*local_dict[topkey]
   return(global_dict)
 
 def marginalize_dict(indict):
@@ -218,36 +258,36 @@ for e in corpus:
     options = {}
     #options = combine_dicts(options, predict(model['pro_from_ref'], ref))
     if USE_COH:
-      options = combine_dicts(options, predict(model['pro_from_coh'], coh))
+      options = combine_dicts(options, predict(model['pro_from_coh'], coh), 'coh')
     if USE_TOP:
-      options = combine_dicts(options, predict(model['pro_from_top'], ref_topic))
+      options = combine_dicts(options, predict(model['pro_from_top'], ref_topic), 'ref_topic')
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
 
     if USE_SYNCAT:
-      options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat))
+      options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat), 'ref_syncat')
     if USE_ANT_SYNCAT:
-      options = combine_dicts(options, predict(model['pro_from_ant_syncat'], ant_syncat))
+      options = combine_dicts(options, predict(model['pro_from_ant_syncat'], ant_syncat), 'ant_syncat')
 
     if USE_SENT:
       if SENT_VECTORS:
-        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info))
+        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_sent'], sent_info), 'sent_info')
       else:
-        options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+        options = combine_dicts(options, predict(model['pro_from_sent'], sent_info), 'sent_info')
     if USE_SENTPOS:
-      options = combine_dicts(options, predict(model['pro_from_sentpos'], sentpos))
+      options = combine_dicts(options, predict(model['pro_from_sentpos'], sentpos), 'sentpos')
     if USE_ANT:
       if ANT_VECTORS:
-        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info))
+        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_ant'], ant_info), 'ant_info')
       else:
-        options = combine_dicts(options, predict(model['pro_from_ant'], ant_info))
+        options = combine_dicts(options, predict(model['pro_from_ant'], ant_info), 'ant_info')
       
     if DEBUG:
       sys.stderr.write('Before: '+str(options)+'\n')
     if USE_BI:
       if BI_VECTORS:
-        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_bi'], bi_info))
+        options = combine_dicts(options, marginalize_centroid_dict(model['pro_from_bi'], bi_info), 'bi_info')
       else:
-        options = combine_dicts(options, predict(model['pro_from_bi'], bi_info))
+        options = combine_dicts(options, predict(model['pro_from_bi'], bi_info), 'bi_info')
     if DEBUG:
       sys.stderr.write('After: '+str(options)+'\n')
       

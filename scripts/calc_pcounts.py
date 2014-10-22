@@ -20,7 +20,7 @@ ANT_VECTORS = False #uses distributed representation of antecedent
 SENT_VECTORS = False #uses distributed representation of sentence
 BI_VECTORS = False #uses distributed representation of bigram context
 
-COLLAPSE_PRO = 2 # how should pro values be collapsed (0 = uncollapsed)
+COLLAPSE_PRO = 0 # how should pro values be collapsed (0 = uncollapsed)
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
