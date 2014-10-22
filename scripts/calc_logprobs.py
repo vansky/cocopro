@@ -1,6 +1,7 @@
-#scripts/calc_logprobs.py {--input FILE} --output FILE
+#scripts/calc_logprobs.py {--input FILE} [--hold-out FILE] --output FILE
 #computes logprobs based on count data
 # input FILE is a pickled input dict containing counts
+# hold-out FILE is a file that is held-out for testing purposes
 # output FILE is a pickled dictionary of probabilities
 
 from __future__ import division

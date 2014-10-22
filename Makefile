@@ -307,7 +307,12 @@ genmodel/cocopro.%.pcounts genmodel/cocopro.%.regtable: scripts/calc_pcounts.py 
 .PRECIOUS: genmodel/cocopro.%.regtables
 # genmodel/cocopro.dgb_data-20.regtables
 genmodel/cocopro.%.regtables: scripts/find_feature_weights.py $(foreach sect,$(DGBDEVSECTS), genmodel/cocopro.$$*.$(sect).regtable)
-	python $^ > $@
+	python $< $(foreach sect,$(DGBDEVSECTS), --input genmodel/cocopro.$*.$(sect).regtable) > $@
+
+.PRECIOUS: genmodel/cocopro.%.regtables.err
+# genmodel/cocopro.dgb_data-20+100.regtables
+genmodel/cocopro.%.regtables genmodel/cocopro.%.regtables.acc: scripts/find_feature_weights.py $(foreach sect,$(DGBDEVSECTS), genmodel/cocopro.$$(word 1,$$(subst +, ,$$*)).$(sect).regtable)
+	python $< $(foreach sect,$(DGBDEVSECTS), --input genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(sect).regtable) --hold-out genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(word 2,$(subst +, ,$*)).regtable --acc genmodel/cocopro.$*.regtables.acc > genmodel/cocopro.$*.regtables
 
 #.PRECIOUS: %.pcounts
 ## genmodel/cocopro.dgb_data-20.100.pcounts
@@ -358,6 +363,15 @@ genmodel/cocopro.%.regtables: scripts/find_feature_weights.py $(foreach sect,$(D
 	python3 $^ > $@
 
 %.testaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBTESTSECTS),%.$(sect).accuracy)
+	python3 $^ > $@
+
+%.totclassaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBSECTS),%+$(sect).regtables.acc)
+	python3 $^ > $@
+
+%.devclassaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBDEVSECTS),%+$(sect).regtables.acc)
+	python3 $^ > $@
+
+%.testclassaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBTESTSECTS),%+$(sect).regtables.acc)
 	python3 $^ > $@
 
 #.PRECIOUS: genmodel/cocopro.counts

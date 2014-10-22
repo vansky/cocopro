@@ -5,7 +5,7 @@ from __future__ import division
 import re
 import sys
 
-reacc = re.compile('^([A-Za-z]*): (\d*)/(\d*)$')
+reacc = re.compile('^([A-Za-z]*): (\d*)/(\d*)')
 
 results = {}
 
