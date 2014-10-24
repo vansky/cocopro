@@ -25,6 +25,7 @@ RANDOM_SEED = 37 #None yields random initialization
 submodels = [('coh','ref'),('ref','pro')] #the dicts in model will be keyed on (cond,x)
 NUMREFS = 20 #the initial number of possible referents
 
+VERBOSE = False
 random.seed(RANDOM_SEED)
 
 def initialize_corpus(corpus,keyname,startkeys):
@@ -158,7 +159,7 @@ def M(corpus,model,latent_var):
   #sys.stderr.write('latconds: '+str(latconds)+'\n')
   #sys.stderr.write('latevents: '+str(latevents)+'\n')
   for ix,obs in enumerate(corpus):
-    if ix %100 == 0:
+    if VERBOSE and ix %100 == 0:
       sys.stderr.write(str(ix)+ '\n')
     if latevents != []:
       #there are ways to generate this latent var
@@ -290,7 +291,8 @@ while abs(lik - oldlik) > threshold:
 #    FIRST = False
 #    sys.stderr.write('Maximization done\n')
 #    sys.stderr.write('\n'.join([str(s)+': '+str(model[s]) for s in model])+'\n')
-  sys.stderr.write('Likelihood: '+str(lik)+'\n')
+  if VERBOSE:
+    sys.stderr.write('Likelihood: '+str(lik)+'\n')
 
 #Scoring phase
 if 'hold-out' in OPTS:
@@ -299,20 +301,33 @@ if 'hold-out' in OPTS:
 else:
   testdata = corpus
   
-total = 0
-correct = 0
+results = {'Total' : [0,0,0]}
+
 for obs in testdata:
   outcomes = traverse_chain(obs,model,collapse=['ref'],genchain=[('coh','ref'),('ref','pro')])
   guess,guessprob = max(outcomes.items(), key=operator.itemgetter(1))
-  total += 1
+  
+  results['Total'][1] += 1
+  if obs[DEP_VAL] not in results:
+    results[obs[DEP_VAL]] = [0,0,0]
+  results[obs[DEP_VAL]][1] += 1
   if guess == obs[DEP_VAL]:
-    correct += 1
-if total != 0:
-  score = correct / total
-else:
-  score = 0.0
+    results['Total'][0] += 1
+    results[obs[DEP_VAL]][0] += 1
+
+for r in results:
+  if results[r][1] != 0:
+    results[r][2] = results[r][0] / results[r][1]
 if 'acc' in OPTS:
   with open(OPTS['acc'],'w') as f:
-    f.write('Total: '+str(correct)+'/'+str(total)+'='+str(score)+'\n')
+    f.write('Total: '+str(results['Total'][0])+'/'+str(results['Total'][1])+'='+str(results['Total'][2])+'\n')
+    for r in results:
+      if r != 'Total':
+        #we already output Total
+        f.write(str(r)+': '+str(results[r][0])+'/'+str(results[r][1])+'='+str(results[r][2])+'\n')
 else:
-  sys.stderr.write('Total: '+str(correct)+'/'+str(total)+'='+str(score)+'\n')
+  sys.stderr.write('Total: '+str(results['Total'][0])+'/'+str(results['Total'][1])+'='+str(results['Total'][2])+'\n')
+  for r in results:
+    if r != 'Total':
+      #we already output Total
+      sys.stderr.write(str(r)+': '+str(results[r][0])+'/'+str(results[r][1])+'='+str(results[r][2])+'\n')
