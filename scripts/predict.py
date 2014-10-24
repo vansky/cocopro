@@ -24,6 +24,7 @@ DEBUG = False
 # Tells what features to use during test time; At least one must be set to True
 USE_COH = 1 #coherence relation
 USE_TOP = 1 #topic assignment
+USE_TOPCHANGE = 1 #topic assignment changed?
 USE_ANT = 1 #antecedent token
 USE_ANT_SYNCAT = 1 #antecedent syntactic category
 USE_SENT = 1 #first token of sentence
@@ -32,7 +33,7 @@ USE_BI = 1 #preceding (bigram prefix) token
 USE_SYNCAT = 1 #syntactic (GCG14) category
 
 # Tells how to collapse PRO (0 means uncollapsed)
-COLLAPSE_PRO = 0
+COLLAPSE_PRO = 2
 
 # Tells the model to use regression weights (obtained from genmodel/*regtables)
 USE_WEIGHTS = 0
@@ -91,6 +92,16 @@ for aix in range(1,len(sys.argv)):
 def get_topic(line):
   #returns the topic assignment from this line
   return line.strip().split()[-1]
+
+def find_best_key(indict):
+  #returns the key with the largest associated int value
+  bestkey = 0
+  bestval = 0
+  for k,v in indict.items():
+    if int(v) > bestval:
+      bestkey = k
+      bestval = int(v)
+  return(bestkey)
 
 def find_sent(inix, sentlist):
   old_six = 0
@@ -203,8 +214,10 @@ for e in corpus:
   head_begin = e['HEAD'][0]
   head_end = e['HEAD'][1]
   next_sent = 0
-  for si in sentlist:
+  prevsent = -1
+  for six,si in enumerate(sentlist):
     if si > head_begin:
+      prevsent = sentlist[max(0,six-2)]
       next_sent = si
       break
 
@@ -220,6 +233,15 @@ for e in corpus:
   else:
     sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
+  posstops = {} #{topic: count}
+  for wix in range(prevsent,head_begin - e['SENTPOS']):
+    thistop = topics[wix].split()[1]
+    posstops[thistop] = posstops.get(thistop,0) + 1
+  if posstops == {}:
+    prevsent_topic = '-1'
+  else:
+    prevsent_topic = find_best_key(posstops) 
+
   sentpos = e['SENTPOS']
   ref_topic = topics[head_begin].split()[1]
   ref_syncat = syncats[head_begin].split()[1]
@@ -262,6 +284,9 @@ for e in corpus:
     if USE_TOP:
       options = combine_dicts(options, predict(model['pro_from_top'], ref_topic), 'ref_topic')
     #options = combine_dicts(options, predict(model['pro_from_sent'], sent_info))
+    if USE_TOPCHANGE:
+      TOPCHANGE = ref_topic == prevsent_topic
+      options = combine_dicts(options, predict(model['pro_from_topchange'], TOPCHANGE), 'topchange')
 
     if USE_SYNCAT:
       options = combine_dicts(options, predict(model['pro_from_ref_syncat'], ref_syncat), 'ref_syncat')

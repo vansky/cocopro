@@ -9,6 +9,7 @@
 #      output FILE designates where to write output; '-' designates stdin
 
 from __future__ import division
+import operator
 import pickle
 import re
 import sys
@@ -20,7 +21,7 @@ ANT_VECTORS = False #uses distributed representation of antecedent
 SENT_VECTORS = False #uses distributed representation of sentence
 BI_VECTORS = False #uses distributed representation of bigram context
 
-COLLAPSE_PRO = 0 # how should pro values be collapsed (0 = uncollapsed)
+COLLAPSE_PRO = 2 # how should pro values be collapsed (0 = uncollapsed)
 
 OPTS = {}
 for aix in range(1,len(sys.argv)):
@@ -36,6 +37,16 @@ for aix in range(1,len(sys.argv)):
 def get_topic(line):
   #returns the topic assignment from this line
   return(line.strip().split()[-1])
+
+def find_best_key(indict):
+  #returns the key with the largest associated int value
+  bestkey = 0
+  bestval = 0
+  for k,v in indict.items():
+    if int(v) > bestval:
+      bestkey = k
+      bestval = int(v)
+  return(bestkey)
 
 def add_pseudocounts(indict,priordict=None):
   if len(indict) == 0:
@@ -95,6 +106,7 @@ pro_counts = {} # { [pro] : [counts] }
 pro_from_ref = {} # { [ref] : { [pro] : [counts] } }
 pro_from_coh = {} # { [coh] : { [pro] : [counts] } }
 pro_from_top = {} # { [topic] : { [pro] : [counts] } }
+pro_from_topchange = {} # { [topicchange?] : { [pro] : [counts] } }
 pro_from_sent = {} # { [sent] : { [pro] : [counts] } }
 pro_from_sentpos = {} # { [sentpos] : { [pro] : [counts] } }
 pro_from_ant = {} # { [ant] : { [pro] : [counts] } }
@@ -140,8 +152,10 @@ for e in coco_corpus:
   head_begin = e['HEAD'][0]
   head_end = e['HEAD'][1]
   next_sent = 0
-  for si in sentlist:
+  prevsent = -1
+  for six,si in enumerate(sentlist):
     if si > head_begin:
+      prevsent = sentlist[max(six-2,0)]
       next_sent = si
       break
 
@@ -157,6 +171,15 @@ for e in coco_corpus:
   else:
     sent_info = topics[head_begin - e['SENTPOS']].split()[0]
   sent_topic = topics[head_begin - e['SENTPOS']].split()[1]
+  posstops = {} #{topic: count}
+  for wix in range(prevsent,head_begin - e['SENTPOS']):
+    thistop = topics[wix].split()[1]
+    posstops[thistop] = posstops.get(thistop,0) + 1
+  if posstops == {}:
+    prevsent_topic = '-1'
+  else:
+    prevsent_topic = find_best_key(posstops)
+
   sentpos = e['SENTPOS']
   ref_topic = topics[head_begin].split()[1]
   if ANT_VECTORS:
@@ -234,6 +257,10 @@ for e in coco_corpus:
   pro_from_coh[coh][pro] = pro_from_coh[coh].get(pro,0) + 1
   if ref_topic not in pro_from_top:
     pro_from_top[ref_topic] = {}
+  TOPIC_CHANGE = ref_topic == prevsent_topic
+  if TOPIC_CHANGE not in pro_from_topchange:
+    pro_from_topchange[TOPIC_CHANGE] = {}
+  pro_from_topchange[TOPIC_CHANGE][pro] = pro_from_topchange[TOPIC_CHANGE].get(pro,0) + 1
   pro_from_top[ref_topic][pro] = pro_from_top[ref_topic].get(pro,0) + 1
   if sent_info not in pro_from_sent:
     pro_from_sent[sent_info] = {}
@@ -258,6 +285,7 @@ for e in coco_corpus:
                  'sentpos':int(sentpos),
                  'sent_info':sent_info,
                  'ref_topic':ref_topic,
+                 'prevsent_topic':prevsent_topic,
                  'ant_info':ant_info,
                  'bi_info':bi_info,
                  'ref_syncat':ref_syncat,
@@ -359,7 +387,7 @@ if ADD_PSEUDO:
 #  127: ['elab-det-time-org-num', 'elab-num-pers-det', 'elab-loc', 'elab-det-num-pers-org', 'elab-det-loc-org-time', 'elab-loc-pers', 'elab', 'elab-time-pers-loc', 'elab-det-org-num-time', 'elab-pers-time-loc', 'elab-det-pers', 'elab-det-time-org', 'elab-pers-det', 'elab-pers-org-det', 'elab-pers-det-org-time-num', 'elab-num-time', 'elab-det-num-time', 'elab-det-time-pers', 'elab-det-loc-num-org', 'elab-det-num-pers-org-loc-time', 'elab-pers-loc', 'gen', 'elab-pers-det-time-num', 'attr', 'elab-time', 'elab-time-num', 'elab-det-num-loc-time', '-1', 'elab-det-pers-time-org', 'elab-pers-org', 'elab-det-time-org-pers', 'elab-org-pers-det', 'elab-loc-det', 'elab-pers-num', 'elab-det-org-pers', 'elab-det-num', 'elab-det-time-loc', 'elab-time-det-num', 'elab-det-num-pers', 'elab-pers-time', 'elab-det-pers-time', 'elab-det-pers-org-time-num', 'elab-det-pers-loc-org', 'contrast', 'elab-num-pers', 'elab-det-org-loc', 'elab-org', 'elab-det-num-loc', 'elab-det-num-pers-time', 'elab-org-num', 'elab-det-pers-loc', 'elab-det-org-num', 'elab-det-pers-org-time', 'elab-org-time', 'elab-pers-loc-num', 'elab-loc-org-num', 'elab-det-time-num-org-loc-pers', 'elab-pers-loc-time', 'contr', 'elab-time-org', 'elab-det', 'elab-det-pers-org-num', 'elab-loc-time-det', 'elab-det-org-time-num-pers', 'elab-det-pers-time-loc', 'ce', 'elab-pers-det-loc', 'elab-det-pers-num-org', 'elab-dec-loc-pers', 'elab-det-num-org-loc', 'elab-per', 'elab-det-time', 'elab-det-pers-org', 'elab-detg', 'elab-org-det', 'elab-det-loc-num', 'elab-det-pers-org-loc', 'elab-time-loc', 'elab-det-loc-org-num', 'elab-time-num-det', 'elab-org-pers', 'elab-time-det-loc', 'elab-det-loc-org', 'elab-num-time-det', 'elab-det-pers-org-num-loc', 'elab-num-loc-org-pers', 'elab-pers-time-org', 'elab-loc-org', 'elab-det-org-loc-pers', 'temp', 'expv', 'elab-det-time-num-org', 'elab-det-pers-loc-org-num-time', 'elab-det-pers-loc-time-org', 'elab-det-loc-pers-time', 'elab-time-det', 'elab-pers-org-loc', 'elab-det-time-loc-org', 'elab-loc-det-pers', 'elab-num', 'cond', 'elab-det-pers-num', 'elab-num-loc-det', 'elab-time-det-org-pers', 'elab-pers-det-time', 'par', 'elab-loc-org-pers-det', 'same', 'elab-det-pers-time-num', 'examp', 'elab-det-loc-time', 'elab-det-loc', 'elab-det-loc-pers', 'elab-num-org-time', 'elab-pers', 'elab-det-org', 'elab-det-org-time-loc-num-pers', 'elab-det-pers-loc-time', 'elab-det-num-org', 'parallel', 'elab-num-loc-pers-det', 'elab-det-time-pers-num', 'elab-det-num-time-loc', 'elab-num-det-pers', 'elab-det-num-pers-loc', 'elab-num-loc-det-pers', 'elab-det-time-num']
 pcounts = {'pro_from_ref': pro_from_ref, 'pro_from_coh':pro_from_coh, 'pro_from_top':pro_from_top, 'pro_from_sent':pro_from_sent, 'pro_from_ant':pro_from_ant,\
              'pro_from_bi':pro_from_bi, 'pro_from_ref_syncat':pro_from_ref_syncat, 'pro_from_ant_syncat':pro_from_ant_syncat, 'pro_from_sentpos':pro_from_sentpos, \
-             'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
+             'pro_from_topchange':pro_from_topchange,'ref_from_coh':ref_from_coh, 'ref_from_top':ref_from_top,\
              's_from_top':s_from_top}
 topic_counts = {}
 for t in topics:

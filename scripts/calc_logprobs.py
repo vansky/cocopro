@@ -146,6 +146,7 @@ def add_pseudocounts(indict,priordict=None):
 combined_pro_from_ref = {}
 combined_pro_from_coh = {}
 combined_pro_from_top = {}
+combined_pro_from_topchange = {}
 combined_pro_from_sent = {}
 combined_pro_from_sentpos = {}
 combined_pro_from_ant = {}
@@ -171,6 +172,7 @@ for fname in input_names:
   combined_pro_from_ref = combine_dicts(combined_pro_from_ref, pcounts['pro_from_ref'])
   combined_pro_from_coh = combine_dicts(combined_pro_from_coh, pcounts['pro_from_coh'])
   combined_pro_from_top = combine_dicts(combined_pro_from_top, pcounts['pro_from_top'])
+  combined_pro_from_topchange = combine_dicts(combined_pro_from_topchange, pcounts['pro_from_topchange'])
   combined_pro_from_sent = combine_dicts(combined_pro_from_sent, pcounts['pro_from_sent'])
   combined_pro_from_sentpos = combine_dicts(combined_pro_from_sentpos, pcounts['pro_from_sentpos'])
   combined_pro_from_ant = combine_dicts(combined_pro_from_ant, pcounts['pro_from_ant'])
@@ -219,7 +221,7 @@ if ADD_PSEUDO:
   else:
     combined_pro_from_sent = add_pseudocounts(combined_pro_from_sent, combined_pro_counts)
 
-  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_ref_syncat, combined_pro_from_sentpos, combined_pro_from_ant_syncat):
+  for d in (combined_pro_from_ref, combined_pro_from_coh, combined_pro_from_top, combined_pro_from_topchange, combined_pro_from_ref_syncat, combined_pro_from_sentpos, combined_pro_from_ant_syncat):
     d = add_pseudocounts(d, combined_pro_counts)
   for d in (combined_ref_from_coh, combined_ref_from_top):
     d = add_pseudocounts(d)
@@ -228,6 +230,7 @@ prob_dict = {}
 prob_dict['pro_from_ref'] = normalize_probs(combined_pro_from_ref) #P(pro|ref)
 prob_dict['pro_from_coh'] = normalize_probs(combined_pro_from_coh) #P(pro|coh)
 prob_dict['pro_from_top'] = normalize_probs(combined_pro_from_top) #P(pro|top)
+prob_dict['pro_from_topchange'] = normalize_probs(combined_pro_from_topchange) #P(pro|topchange)
 prob_dict['pro_from_sent'] = normalize_probs(combined_pro_from_sent) #P(pro|sent)
 prob_dict['pro_from_sentpos'] = normalize_probs(combined_pro_from_sentpos) #P(pro|sentpos)
 prob_dict['pro_from_ant'] = normalize_probs(combined_pro_from_ant) #P(pro|ant)
