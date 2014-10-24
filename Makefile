@@ -309,10 +309,20 @@ genmodel/cocopro.%.pcounts genmodel/cocopro.%.regtable: scripts/calc_pcounts.py 
 genmodel/cocopro.%.regtables: scripts/find_feature_weights.py $(foreach sect,$(DGBDEVSECTS), genmodel/cocopro.$$*.$(sect).regtable)
 	python $< $(foreach sect,$(DGBDEVSECTS), --input genmodel/cocopro.$*.$(sect).regtable) > $@
 
-.PRECIOUS: genmodel/cocopro.%.regtables.err
+.PRECIOUS: genmodel/cocopro.%.regtables.acc
 # genmodel/cocopro.dgb_data-20+100.regtables
-genmodel/cocopro.%.regtables genmodel/cocopro.%.regtables.acc: scripts/find_feature_weights.py $(foreach sect,$(DGBDEVSECTS), genmodel/cocopro.$$(word 1,$$(subst +, ,$$*)).$(sect).regtable)
-	python $< $(foreach sect,$(DGBDEVSECTS), --input genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(sect).regtable) --hold-out genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(word 2,$(subst +, ,$*)).regtable --acc genmodel/cocopro.$*.regtables.acc > genmodel/cocopro.$*.regtables
+genmodel/cocopro.%.regtables genmodel/cocopro.%.regtables.acc: scripts/find_feature_weights.py $(foreach sect,$(DGBSECTS), genmodel/cocopro.$$(word 1,$$(subst +, ,$$*)).$(sect).regtable)
+	python $< $(foreach sect,$(DGBSECTS), --input genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(sect).regtable) --hold-out genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(word 2,$(subst +, ,$*)).regtable --acc genmodel/cocopro.$*.regtables.acc > genmodel/cocopro.$*.regtables
+
+.PRECIOUS: genmodel/cocopro.%.latmodels
+# genmodel/cocopro.dgb_data-20.latmodels
+genmodel/cocopro.%.latmodels: scripts/infer_ref.py $(foreach sect,$(DGBDEVSECTS), genmodel/cocopro.$$*.$(sect).regtable)
+	python $< $(foreach sect,$(DGBDEVSECTS), --input genmodel/cocopro.$*.$(sect).regtable) > $@
+
+.PRECIOUS: genmodel/cocopro.%.latmodel.acc
+# genmodel/cocopro.dgb_data-20+100.latmodels
+genmodel/cocopro.%.latmodels genmodel/cocopro.%.latmodels.acc: scripts/infer_ref.py $(foreach sect,$(DGBSECTS), genmodel/cocopro.$$(word 1,$$(subst +, ,$$*)).$(sect).regtable)
+	python $< $(foreach sect,$(DGBSECTS), --input genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(sect).regtable) --hold-out genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(word 2,$(subst +, ,$*)).regtable --acc genmodel/cocopro.$*.latmodels.acc > genmodel/cocopro.$*.latmodels
 
 #.PRECIOUS: %.pcounts
 ## genmodel/cocopro.dgb_data-20.100.pcounts

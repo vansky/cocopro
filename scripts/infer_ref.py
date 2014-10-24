@@ -25,7 +25,7 @@ NUMREFS = 100 #the initial number of possible referents
 
 def initialize_corpus(corpus,keyname,startkeys):
   #initializes corpus (in place) with random draws from startkeys
-  for obs in corpus:
+  for obs in range(len(corpus)):
     corpus[obs][keyname] = random.choice(startkeys)
 
 def normalize(model,top = True):
@@ -50,13 +50,13 @@ def pseudo_normalize(model,pseudocount = 0.5,top = True):
     model['-1'] = dict((v,1) for k in model for v in model[k])
     for k in model:
       #we're in a conditional dictionary
-      normalize(model[k], pseudocount, top=False)
+      pseudo_normalize(model[k], pseudocount, False)
   else:
     total = 0
     for k in model:
       total += model[k]
     total += pseudocount
-    model[k]['-1'] = pseudocount
+    model['-1'] = pseudocount
     for k in model:
       model[k] /= total
   #model is modified in place; the function ends here
@@ -125,8 +125,14 @@ def M(corpus,model,latent_var):
   #then return the resulting likelihood
   likelihood = 0.0
   latconds = [s for s in model if latent_var == s[0]]
+  if latconds != []:
+    possconds = model[latconds[0]].keys()
   latevents = [s for s in model if latent_var == s[1]]
-  for obs in corpus:
+  sys.stderr.write('latconds: '+str(latconds)+'\n')
+  sys.stderr.write('latevents: '+str(latevents)+'\n')
+  for ix,obs in enumerate(corpus):
+    if ix %100 == 0:
+      sys.stderr.write(str(ix)+ '\n')
     if latevents != []:
       #there are ways to generate this latent var
       prior = {}
@@ -139,14 +145,16 @@ def M(corpus,model,latent_var):
           lik = {}
           for submodel in latconds:
             #calc likelihood of generating all downstream vars
-            lik = fully_generate(post,model[submodel][obs[submodel[0]]],prior)
+            for val in prior:
+              lik = fully_generate(lik,model[submodel][val],prior)
     else:
       lik = {}
       if latconds != []:
         #there are observed events conditioned on this latent var
           for submodel in latconds:
             #calc likelihood of generating all downstream vars
-            lik = full_generate(post,model[submodel][obs[submodel[0]]])
+            for val in possconds:
+              lik = full_generate(lik,model[submodel][val])
       else:
         raise #The latent variable doesn't exist in the model!
     #update the obs with new value for latent variable
