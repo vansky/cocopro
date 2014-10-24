@@ -143,7 +143,7 @@ def combine_dicts(global_dict,local_dict,weight_key):
       if USE_WEIGHTS:
         global_dict[topkey] = global_dict.get(topkey, 0) + (1-WEIGHTS[weight_key])*local_dict[topkey]+local_dict[topkey]
       else:
-        global_dict[topkey] = global_dict.get(topkey, 0) + .5*local_dict[topkey]
+        global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
   return(global_dict)
 
 def marginalize_dict(indict):
