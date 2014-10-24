@@ -50,6 +50,7 @@ BNCTRAINDIRS = A B C D E F G H J
 LRSECTS = oerr oer ofr oq rnr se ser
 DGBSECTS = $(shell seq 135)
 DGBDEVSECTS = $(shell seq 100 115) #391 dev cases
+DGBDEV2SECTS = $(shell seq 100 120) #525 training cases for rapid dev testing
 DGBTESTSECTS= $(shell seq 100) $(shell seq 116 135) #2270 test cases
 
 include $(wildcard */*.d)      ## don't comment out, it breaks make!
@@ -319,7 +320,7 @@ genmodel/cocopro.%.regtables genmodel/cocopro.%.regtables.acc: scripts/find_feat
 genmodel/cocopro.%.latmodels: scripts/infer_ref.py $(foreach sect,$(DGBDEVSECTS), genmodel/cocopro.$$*.$(sect).regtable)
 	python $< $(foreach sect,$(DGBDEVSECTS), --input genmodel/cocopro.$*.$(sect).regtable) > $@
 
-.PRECIOUS: genmodel/cocopro.%.latmodel.acc
+.PRECIOUS: genmodel/cocopro.%.latmodels.acc
 # genmodel/cocopro.dgb_data-20+100.latmodels
 genmodel/cocopro.%.latmodels genmodel/cocopro.%.latmodels.acc: scripts/infer_ref.py $(foreach sect,$(DGBSECTS), genmodel/cocopro.$$(word 1,$$(subst +, ,$$*)).$(sect).regtable)
 	python $< $(foreach sect,$(DGBSECTS), --input genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(sect).regtable) --hold-out genmodel/cocopro.$(word 1,$(subst +, ,$*)).$(word 2,$(subst +, ,$*)).regtable --acc genmodel/cocopro.$*.latmodels.acc > genmodel/cocopro.$*.latmodels
@@ -382,6 +383,15 @@ genmodel/cocopro.%.latmodels genmodel/cocopro.%.latmodels.acc: scripts/infer_ref
 	python3 $^ > $@
 
 %.testclassaccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBTESTSECTS),%+$(sect).regtables.acc)
+	python3 $^ > $@
+
+%.totlataccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBSECTS),%+$(sect).latmodels.acc)
+	python3 $^ > $@
+
+%.devlataccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBDEVSECTS),%+$(sect).latmodels.acc)
+	python3 $^ > $@
+
+%.testlataccuracy: scripts/sum_accuracy.py $(foreach sect, $(DGBTESTSECTS),%+$(sect).latmodels.acc)
 	python3 $^ > $@
 
 #.PRECIOUS: genmodel/cocopro.counts

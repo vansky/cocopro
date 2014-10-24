@@ -3,6 +3,8 @@
 # tests on hold-out file to determine accuracy
 # accuracy is output to the FILE specified by --acc or defaults to stderr
 
+from __future__ import division
+
 import math
 import numpy
 import operator
@@ -74,19 +76,33 @@ def combine_dicts(global_dict,local_dict,prior = None):
       for lowkey in local_dict[topkey]:
         if prior:
           #use a latent prior distribution
-          global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]*prior[topkey]
+          if topkey in prior:
+            global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]*prior[topkey]
+          else:
+          #  global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]*prior['-1']
+            global_dict[topkey][lowkey] = 0.0
         else:
           global_dict[topkey][lowkey] = global_dict[topkey].get(lowkey, 0) + local_dict[topkey][lowkey]
     else:
-      global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
+      if prior:
+        global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]*prior[topkey]
+      else:
+        global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
   return(global_dict)
 
-def marginalize_dicts(global_dict,local_dict):
+def marginalize_dicts(global_dict,local_dict,prior = None):
   #marginalize over all conditions
   for topkey in local_dict:
     if type(local_dict[topkey]) == type({}):
-      for lowkey in local_dict[topkey]:          
-        global_dict[lowkey] = global_dict.get(lowkey, 0) + local_dict[topkey][lowkey]
+      if prior:
+        if topkey not in prior:
+          #if topkey was never generated, move on
+          continue
+        for lowkey in local_dict[topkey]:
+          global_dict[lowkey] = global_dict.get(lowkey, 0) + local_dict[topkey][lowkey]*prior[topkey]
+      else:
+        for lowkey in local_dict[topkey]:
+          global_dict[lowkey] = global_dict.get(lowkey, 0) + local_dict[topkey][lowkey]
     else:
       global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
   return(normalize(global_dict))
@@ -126,12 +142,19 @@ def E(corpus,modelkeys):
 def M(corpus,model,latent_var):
   #maximize the likelihood of the corpus given the model
   #updating 'latent_var' for each obs to maximize the probability
+  # assume A-> latX-> B:
+  # argmax(P(X|A)*P(X|C) = P(X|A)*[P(C|X)*P(X)]
   #then return the resulting likelihood
   likelihood = 0.0
   latconds = [s for s in model if latent_var == s[0]]
-  if latconds != []:
-    possconds = model[latconds[0]].keys()
   latevents = [s for s in model if latent_var == s[1]]
+  if latevents != []:
+    latprior = marginalize_dicts({},model[latevents[0]]) #the prior probability of seeing each latent value
+  elif latconds != []:
+    #if we don't generate the latent variables from anything, assume a uniform prior over variable values
+    latprior = normalize(dict( (k,1) for k in model[latconds[0]] ))
+  else:
+    raise #latent variable isn't present in model...
   #sys.stderr.write('latconds: '+str(latconds)+'\n')
   #sys.stderr.write('latevents: '+str(latevents)+'\n')
   for ix,obs in enumerate(corpus):
@@ -139,46 +162,58 @@ def M(corpus,model,latent_var):
       sys.stderr.write(str(ix)+ '\n')
     if latevents != []:
       #there are ways to generate this latent var
-      prior = {}
-      for obs in corpus:
-        for submodel in latevents:
-          #sum over all ways of generating latevent
-          prior = marginalize_dicts(prior,model[submodel][obs[submodel[0]]])
-        if latconds != []:
-          #there are observed events conditioned on this latent var
-          lik = {}
-          for submodel in latconds:
-            #calc likelihood of generating all downstream vars
-            for val in prior:
-              lik = fully_generate(lik,model[submodel][val],prior)
-    else:
-      lik = {}
+      genlik = {}
+      for submodel in latevents:
+        #sum over all ways of generating latevent
+        genlik = combine_dicts(genlik,model[submodel][obs[submodel[0]]])
       if latconds != []:
         #there are observed events conditioned on this latent var
-          for submodel in latconds:
-            #calc likelihood of generating all downstream vars
-            for val in possconds:
-              lik = full_generate(lik,model[submodel][val])
-      else:
-        raise #The latent variable doesn't exist in the model!
+        emitlik = {}
+        for submodel in latconds:
+          #calc likelihood of generating all downstream vars
+          for val in latprior:
+            #based on each latent condition
+            if obs[submodel[1]] not in model[submodel][val]:
+              #not sure if this can happen, but just in case we haven't seen this event with this condition
+              emitlik = combine_dicts(emitlik,{ val : model[submodel][val]['-1'] },latprior)
+            else:
+              emitlik = combine_dicts(emitlik,{ val : model[submodel][val][obs[submodel[1]]] },latprior)
+    else:
+      emitlik = {}
+      if latconds != []:
+        #there are observed events conditioned on this latent var
+        for submodel in latconds:
+          #calc likelihood of generating all downstream vars * prior of latent var to Bayes flip
+          for val in latprior:
+            #based on each latent condition
+            if obs[submodel[1]] not in model[submodel][val]:
+              #not sure if this can happen, but just in case we haven't seen this event with this condition
+              emitlik = combine_dicts(emitlik,{ val : model[submodel][val]['-1'] },latprior)
+            else:
+              emitlik = combine_dicts(emitlik,{ val : model[submodel][val][obs[submodel[1]]] },latprior)
     #update the obs with new value for latent variable
-    if lik != {}:
-      #latent var generated something(s) (all values are also include prob of being generated, themselves)
+    lik = {}
+    if emitlik != {}:
+      #latent var generated something(s)
       #each var is associated with its corpus likelihood
+      if genlik != {}:
+        lik = dict( (k,genlik[k]*emitlik[k]) for k in genlik ) #prob of generating val*prob of X generating downstream stuff
+      else:
+        lik = emitlik
       best = max(lik.items(), key=operator.itemgetter(1)) #Pick the best label
       #NB: In future, maybe we should choose the label randomly according to the probabilities
       obs[latent_var] = best[0]
       likelihood += math.log(best[1])
     else:
       #latent var was generated (but didn't generate anything)
-      best = max(prior.items(), key=operator.itemgetter(1)) #Pick the best label
+      best = max(genlik.items(), key=operator.itemgetter(1)) #Pick the best label
       #NB: In future, maybe we should choose the label randomly according to the probabilities
       obs[latent_var] = best[0]
       likelihood += math.log(best[1])
   return(likelihood)
 
-def choose_best(obs,model,collapse,predict_key,genchain):
-  #determines the best assignment for predict_key
+def traverse_chain(obs,model,collapse,genchain):
+  #outputs the possible results from traversing genchain
   #collapses across all the 'collapse' variables, which are latent
   #genchain is used to determine the order of model traversal NB: could be made A) more efficient and B) more general
   liklist = []
@@ -186,15 +221,16 @@ def choose_best(obs,model,collapse,predict_key,genchain):
     lik = {}
     if submodel[0] in collapse: #the condition var is latent
       if submodel[1] in collapse: #the generated var is also latent
-        pass #we'll deal with this case when it arises
+        raise #deal with this when the time comes
       else: #generated var is observed
-        if modi == 0: #this is the first generation of the model
-          pass
+        if modi == 0: #this is the first thing the model will generate
+          raise #deal with this when the time comes
         else: #we've previously generated things from the model
-          for val in liklist[modi-1]:
-            #for each condition that could have been generated,
-            #generate all of its child events
-            lik = fully_generate(lik,model[submodel][val],liklist[modi-1])
+          #sys.stderr.write('lik: '+str(lik)+'\n')
+          #sys.stderr.write('model[submodel]: '+str(model[submodel])+'\n')
+          #sys.stderr.write('liklist[modi-1]: '+str(liklist[modi-1])+'\n')
+          #marginalize events based on the generated conditions
+          lik = marginalize_dicts(lik,model[submodel],liklist[modi-1])
           liklist.append(lik)
     elif submodel[1] in collapse: #the generated var is latent
       if obs[submodel[0]] not in model[submodel]:
@@ -205,8 +241,8 @@ def choose_best(obs,model,collapse,predict_key,genchain):
       #now lik is a dict of [ref]:[prob]
     else:
       #no latent variables in this submodel, so why do we care?
-      pass
-  return( max(liklist[-1].items(), key=operator.itemgetter(1)) ) #Report best label and its prob
+      raise #deal with this when the time comes
+  return( liklist[-1] ) #Report possible labels and their probs
 
 inputlist = []
 OPTS = {}
@@ -229,12 +265,6 @@ for infile in inputlist:
   with open(infile,'rb') as f:
     newfile = pickle.load(f)
     corpus += newfile
-
-##since all categorial values are one hot, each vector associated w/ a feature is FEATURE=X, so ensure the entire feature name should be omitted
-#DEP_VAL = DEP_VAL + '='
-#for i,v in enumerate(OMIT_VALS):
-#  if v not in ['sentpos']: #don't worry about non-categorial variables
-#    OMIT_VALS[i] = OMIT_VALS[i]+'='
 
 model = {}
 for submodel in submodels:
@@ -272,7 +302,8 @@ else:
 total = 0
 correct = 0
 for obs in testdata:
-  guess,guessprob = choose_best(obs,model,collapse=['ref'],predict_key=DEP_VAL,genchain=[('coh','ref'),('ref','pro')])
+  outcomes = traverse_chain(obs,model,collapse=['ref'],genchain=[('coh','ref'),('ref','pro')])
+  guess,guessprob = max(outcomes.items(), key=operator.itemgetter(1))
   total += 1
   if guess == obs[DEP_VAL]:
     correct += 1
