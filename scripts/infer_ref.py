@@ -21,36 +21,39 @@ OMIT_VALS = ["ref_id"] #features to omit when determining feature weights
 RANDOM_SEED = 37 #None yields random initialization
 
 submodels = [('coh','ref'),('ref','pro')] #the dicts in model will be keyed on (cond,x)
-NUMREFS = 100 #the initial number of possible referents
+NUMREFS = 20 #the initial number of possible referents
+
+random.seed(RANDOM_SEED)
 
 def initialize_corpus(corpus,keyname,startkeys):
   #initializes corpus (in place) with random draws from startkeys
   for obs in range(len(corpus)):
     corpus[obs][keyname] = random.choice(startkeys)
 
-def normalize(model,top = True):
+def normalize(model):
   #normalize the input model
-  if top:
+  if type(model[model.keys()[0]]) == type({}):
+    #we're in a conditional dictionary
     for k in model:
-      #we're in a conditional dictionary
-      normalize(model[k], top=False)
+      normalize(model[k])
   else:
     total = 0
     for k in model:
       total += model[k]
     for k in model:
       model[k] /= total
-  #model is modified in place; the function ends here
+  #model is modified in place *and* is returned
+  return( model )
 
-def pseudo_normalize(model,pseudocount = 0.5,top = True):
+def pseudo_normalize(model,pseudocount = 0.5):
   #add pseudo counts to unobserved events
   #then normalize the input model
-  if top:
+  if type(model[model.keys()[0]]) == type({}):
+    #we're in a conditional dictionary
     #add a pseudo condition
     model['-1'] = dict((v,1) for k in model for v in model[k])
     for k in model:
-      #we're in a conditional dictionary
-      pseudo_normalize(model[k], pseudocount, False)
+      pseudo_normalize(model[k], pseudocount)
   else:
     total = 0
     for k in model:
@@ -59,7 +62,8 @@ def pseudo_normalize(model,pseudocount = 0.5,top = True):
     model['-1'] = pseudocount
     for k in model:
       model[k] /= total
-  #model is modified in place; the function ends here
+  #model is modified in place *and* is returned
+  return( model )
 
 def combine_dicts(global_dict,local_dict,prior = None):
   #combines probs from a local_dict with those in a global_dict
@@ -85,7 +89,7 @@ def marginalize_dicts(global_dict,local_dict):
         global_dict[lowkey] = global_dict.get(lowkey, 0) + local_dict[topkey][lowkey]
     else:
       global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
-  return(global_dict)
+  return(normalize(global_dict))
 
 def fully_generate(global_dict,local_dict,prior = None):
   #calculate likelihood from using each setting of latent cond
@@ -99,7 +103,7 @@ def fully_generate(global_dict,local_dict,prior = None):
           global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey][lowkey]
     else:
       global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
-  return(global_dict)
+  return(normalize(global_dict))
 
 def E(corpus,modelkeys):
   #updates model expectations based on corpus
@@ -128,8 +132,8 @@ def M(corpus,model,latent_var):
   if latconds != []:
     possconds = model[latconds[0]].keys()
   latevents = [s for s in model if latent_var == s[1]]
-  sys.stderr.write('latconds: '+str(latconds)+'\n')
-  sys.stderr.write('latevents: '+str(latevents)+'\n')
+  #sys.stderr.write('latconds: '+str(latconds)+'\n')
+  #sys.stderr.write('latevents: '+str(latevents)+'\n')
   for ix,obs in enumerate(corpus):
     if ix %100 == 0:
       sys.stderr.write(str(ix)+ '\n')
@@ -161,16 +165,48 @@ def M(corpus,model,latent_var):
     if lik != {}:
       #latent var generated something(s) (all values are also include prob of being generated, themselves)
       #each var is associated with its corpus likelihood
-      best = max(lik.items(), key=operator.itemgetter(1))
+      best = max(lik.items(), key=operator.itemgetter(1)) #Pick the best label
+      #NB: In future, maybe we should choose the label randomly according to the probabilities
       obs[latent_var] = best[0]
       likelihood += math.log(best[1])
     else:
       #latent var was generated (but didn't generate anything)
-      best = max(prior.items(), key=operator.itemgetter(1))
+      best = max(prior.items(), key=operator.itemgetter(1)) #Pick the best label
+      #NB: In future, maybe we should choose the label randomly according to the probabilities
       obs[latent_var] = best[0]
       likelihood += math.log(best[1])
   return(likelihood)
 
+def choose_best(obs,model,collapse,predict_key,genchain):
+  #determines the best assignment for predict_key
+  #collapses across all the 'collapse' variables, which are latent
+  #genchain is used to determine the order of model traversal NB: could be made A) more efficient and B) more general
+  liklist = []
+  for modi,submodel in enumerate(genchain):
+    lik = {}
+    if submodel[0] in collapse: #the condition var is latent
+      if submodel[1] in collapse: #the generated var is also latent
+        pass #we'll deal with this case when it arises
+      else: #generated var is observed
+        if modi == 0: #this is the first generation of the model
+          pass
+        else: #we've previously generated things from the model
+          for val in liklist[modi-1]:
+            #for each condition that could have been generated,
+            #generate all of its child events
+            lik = fully_generate(lik,model[submodel][val],liklist[modi-1])
+          liklist.append(lik)
+    elif submodel[1] in collapse: #the generated var is latent
+      if obs[submodel[0]] not in model[submodel]:
+        #we haven't seen this condition before
+        liklist.append(model[submodel]['-1'])
+      else:
+        liklist.append(model[submodel][obs[submodel[0]]])
+      #now lik is a dict of [ref]:[prob]
+    else:
+      #no latent variables in this submodel, so why do we care?
+      pass
+  return( max(liklist[-1].items(), key=operator.itemgetter(1)) ) #Report best label and its prob
 
 inputlist = []
 OPTS = {}
@@ -216,48 +252,36 @@ threshold = 1.0 #assume convergence if we reach this point
 while abs(lik - oldlik) > threshold:
   oldlik = lik
   model = E(corpus,model.keys())
+#  if FIRST:
+#    sys.stderr.write('Expectation done\n')
+#    sys.stderr.write('\n'.join([str(s)+': '+str(model[s]) for s in model])+'\n')
   lik = M(corpus,model,'ref')
+#  if FIRST:
+#    FIRST = False
+#    sys.stderr.write('Maximization done\n')
+#    sys.stderr.write('\n'.join([str(s)+': '+str(model[s]) for s in model])+'\n')
   sys.stderr.write('Likelihood: '+str(lik)+'\n')
 
-raise # just get model to train successfully
 #Scoring phase
 if 'hold-out' in OPTS:
   with open(OPTS['hold-out'],'rb') as f:
     testdata = pickle.load(f)
-  newobs_a = myobs.transform(testdata).toarray()
-  newobs_scaled = sklearn.preprocessing.scale(newobs_a) #less memory efficient, but centers and scales all features/columns
-
-#  dep_ix = []
-#  omit_ix = []
-#  feature_names = newobs.get_feature_names()
-#  for i,k in enumerate(feature_names):
-#    if k[:len(DEP_VAL)] == DEP_VAL:
-#      dep_ix.append(i)
-#      omit_ix.append(i)
-#      continue
-#    for v in OMIT_VALS:
-#      if k[:len(v)] == v:
-#        omit_ix.append(i)
-
-  y_raw = newobs_a[:,dep_ix[0]].reshape(-1,1) #pull out the dependent var columns
-  for i in dep_ix[1:]:
-    y_raw = numpy.append(y_raw,newobs_a[:,i].reshape(-1,1),1)  #Need to append columns to one another!
-  X = newobs_scaled[:,:omit_ix[0]]
-  for i in range(len(omit_ix[1:-1])):
-    X = numpy.append(X,newobs_scaled[:,omit_ix[i-1]:omit_ix[i]],1) #append any intervening columns... might never happen due to OneHot
-  X = numpy.append(X,newobs_scaled[:,omit_ix[-1]:],1) #append the rest of newobs_scaled
-
-#if there is no held-out data, report the accuracy on the training data
-y_toscore = numpy.nonzero(y_raw)[1] #grab the dimension that's one-hot for the dependent variable
-#sys.stderr.write(str(y_toscore.shape)+'~'+str(X.shape)+'\n')
-#sys.stderr.write(str(y_toscore)+'\n\n')
-
-#predict = svm_classifier.predict(X)
-#sys.stderr.write(str(predict.shape)+': '+str(predict)+'\n')
-score = svm_classifier.score(X,y_toscore)
-cases = len(y_toscore)
+else:
+  testdata = corpus
+  
+total = 0
+correct = 0
+for obs in testdata:
+  guess,guessprob = choose_best(obs,model,collapse=['ref'],predict_key=DEP_VAL,genchain=[('coh','ref'),('ref','pro')])
+  total += 1
+  if guess == obs[DEP_VAL]:
+    correct += 1
+if total != 0:
+  score = correct / total
+else:
+  score = 0.0
 if 'acc' in OPTS:
   with open(OPTS['acc'],'w') as f:
-    f.write('Total: '+str(int(score*cases))+'/'+str(cases)+'='+str(score)+'\n')
+    f.write('Total: '+str(correct)+'/'+str(total)+'='+str(score)+'\n')
 else:
-  sys.stderr.write('Total: '+str(int(score*cases))+'/'+str(cases)+'='+str(score)+'\n')
+  sys.stderr.write('Total: '+str(correct)+'/'+str(total)+'='+str(score)+'\n')
