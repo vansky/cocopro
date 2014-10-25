@@ -22,8 +22,17 @@ OMIT_VALS = ["ref_id"] #features to omit when determining feature weights
 #OMIT_VALS = ["ref_id","sentpos","coh","ant_syncat","ant_info","ref_topic"] #features to omit when determining feature weights
 RANDOM_SEED = 37 #None yields random initialization
 
-submodels = [('coh','ref'),('ref','pro')] #the dicts in model will be keyed on (cond,x)
-NUMREFS = 20 #the initial number of possible referents
+LATREF = True
+LATTOPSHIFT = True
+
+submodels = []
+
+if LATREF:
+  submodels += [('coh','ref'),('ref','pro')]
+if LATTOPSHIFT:
+  submodels += [('ref_topic','lat_topic'),('prevsent_topic','lat_topic'),('lat_topic','pro')] #the dicts in model will be keyed on (cond,x)
+NUMREFS = 10 #the initial number of possible referents
+NUMLATTOPS = 5 #the initial number of possible topic shifts
 
 VERBOSE = False
 random.seed(RANDOM_SEED)
@@ -270,27 +279,38 @@ for infile in inputlist:
 model = {}
 for submodel in submodels:
   model[submodel] = {}
-  
-#initialize corpus with latent refs
-initrefs = range(NUMREFS) #[numpy.random.randint(1000, size=NUMREFS)
-initialize_corpus(corpus,'ref',initrefs)
+
+if LATREF:
+  #initialize corpus with latent refs
+  initrefs = range(NUMREFS) #[numpy.random.randint(1000, size=NUMREFS)
+  initialize_corpus(corpus,'ref',initrefs)
+
+if LATTOPSHIFT:
+  #initialize corpus with latent topic shifts
+  inittopshifts = range(NUMLATTOPS)
+  initialize_corpus(corpus,'lat_topic',inittopshifts)
 
 oldlik = 0
 lik = 100
 threshold = 1.0 #assume convergence if we reach this point
-
+maxiters = 100
+iteration = 0
 #EM phase
-while abs(lik - oldlik) > threshold:
+while iteration < maxiters and abs(lik - oldlik) > threshold:
   oldlik = lik
   model = E(corpus,model.keys())
 #  if FIRST:
 #    sys.stderr.write('Expectation done\n')
 #    sys.stderr.write('\n'.join([str(s)+': '+str(model[s]) for s in model])+'\n')
-  lik = M(corpus,model,'ref')
+  if LATREF:
+    lik = M(corpus,model,'ref')
+  if LATTOPSHIFT:
+    lik = M(corpus,model,'lat_topic')
 #  if FIRST:
 #    FIRST = False
 #    sys.stderr.write('Maximization done\n')
 #    sys.stderr.write('\n'.join([str(s)+': '+str(model[s]) for s in model])+'\n')
+  iteration += 1
   if VERBOSE:
     sys.stderr.write('Likelihood: '+str(lik)+'\n')
 
@@ -304,8 +324,23 @@ else:
 results = {'Total' : [0,0,0]}
 
 for obs in testdata:
-  outcomes = traverse_chain(obs,model,collapse=['ref'],genchain=[('coh','ref'),('ref','pro')])
-  guess,guessprob = max(outcomes.items(), key=operator.itemgetter(1))
+  outcomes = []
+  if LATREF:
+    outcomes.append( traverse_chain(obs,model,collapse=['ref'],genchain=[('coh','ref'),('ref','pro')]) )
+  if LATTOPSHIFT:
+    outcomes.append( traverse_chain(obs,model,collapse=['lat_topic'],genchain=[('ref_topic','lat_topic'),('prevsent_topic','lat_topic'),('lat_topic','pro')]) )
+  #can append other independent chain traversals
+  final_outcomes = outcomes[-1]
+  for outix in range(len(outcomes)-1):
+    for o in final_outcomes:
+      final_outcomes[o] *= outcomes[outix][o]
+
+  #for o in final_outcomes:
+  #  if o in model[('sent_info','pro')][obs['sent_info']]:
+  #    final_outcomes[o] *= model[('sent_info','pro')][obs['sent_info']][o]
+  #  else:
+  #    final_outcomes[o] *= model[('sent_info','pro')][obs['sent_info']]['-1']
+  guess,guessprob = max(final_outcomes.items(), key=operator.itemgetter(1))
   
   results['Total'][1] += 1
   if obs[DEP_VAL] not in results:
