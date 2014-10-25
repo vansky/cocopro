@@ -10,20 +10,16 @@ import numpy
 import operator
 import pickle
 import random
-#import sklearn
-#from sklearn.feature_extraction import DictVectorizer
-#from sklearn import svm
 import sys
 
 DEP_VAL = "pro" #dependent variable to regress to when determining weights
-# Full model
-OMIT_VALS = ["ref_id"] #features to omit when determining feature weights
-# Best binary model
 #OMIT_VALS = ["ref_id","sentpos","coh","ant_syncat","ant_info","ref_topic"] #features to omit when determining feature weights
 RANDOM_SEED = 37 #None yields random initialization
 
 LATREF = True
-LATTOPSHIFT = True
+LATTOPSHIFT = False
+
+USE_TOPIC = True
 
 submodels = []
 
@@ -31,7 +27,9 @@ if LATREF:
   submodels += [('coh','ref'),('ref','pro')]
 if LATTOPSHIFT:
   submodels += [('ref_topic','lat_topic'),('prevsent_topic','lat_topic'),('lat_topic','pro')] #the dicts in model will be keyed on (cond,x)
-NUMREFS = 10 #the initial number of possible referents
+if USE_TOPIC:
+  submodels += [('ref_topic','pro')]
+NUMREFS = 20 #the initial number of possible referents
 NUMLATTOPS = 5 #the initial number of possible topic shifts
 
 VERBOSE = False
@@ -236,9 +234,6 @@ def traverse_chain(obs,model,collapse,genchain):
         if modi == 0: #this is the first thing the model will generate
           raise #deal with this when the time comes
         else: #we've previously generated things from the model
-          #sys.stderr.write('lik: '+str(lik)+'\n')
-          #sys.stderr.write('model[submodel]: '+str(model[submodel])+'\n')
-          #sys.stderr.write('liklist[modi-1]: '+str(liklist[modi-1])+'\n')
           #marginalize events based on the generated conditions
           lik = marginalize_dicts(lik,model[submodel],liklist[modi-1])
           liklist.append(lik)
@@ -334,6 +329,12 @@ for obs in testdata:
   for outix in range(len(outcomes)-1):
     for o in final_outcomes:
       final_outcomes[o] *= outcomes[outix][o]
+  for o in final_outcomes:
+    if USE_TOPIC:
+      if o in model[('ref_topic','pro')][obs['ref_topic']]:
+        final_outcomes[o] *= model[('ref_topic','pro')][obs['ref_topic']][o]
+      else:
+        final_outcomes[o] *= model[('ref_topic','pro')][obs['ref_topic']]['-1']
 
   #for o in final_outcomes:
   #  if o in model[('sent_info','pro')][obs['sent_info']]:
