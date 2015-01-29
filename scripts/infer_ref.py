@@ -17,9 +17,13 @@ DEP_VAL = "pro" #dependent variable to regress to when determining weights
 RANDOM_SEED = 37 #None yields random initialization
 
 LATREF = True
+NUMREFS = 5 #the initial number of possible referents
 LATTOPSHIFT = False
+NUMLATTOPS = 50 #the initial number of possible topic shifts
 
-USE_TOPIC = True
+
+USE_TOPIC = False
+USE_BEST = True
 
 submodels = []
 
@@ -29,8 +33,8 @@ if LATTOPSHIFT:
   submodels += [('ref_topic','lat_topic'),('prevsent_topic','lat_topic'),('lat_topic','pro')] #the dicts in model will be keyed on (cond,x)
 if USE_TOPIC:
   submodels += [('ref_topic','pro')]
-NUMREFS = 20 #the initial number of possible referents
-NUMLATTOPS = 5 #the initial number of possible topic shifts
+if USE_BEST:
+  submodels += [('bi_info','pro'),('sent_info','pro'),('ref_syncat','pro')]
 
 VERBOSE = False
 random.seed(RANDOM_SEED)
@@ -128,6 +132,17 @@ def fully_generate(global_dict,local_dict,prior = None):
     else:
       global_dict[topkey] = global_dict.get(topkey, 0) + local_dict[topkey]
   return(normalize(global_dict))
+
+def calc_likelihood(obs,model,submodel,outcome):
+  if obs[submodel[0]] not in model[submodel]:
+    keya = '-1'
+  else:
+    keya = obs[submodel[0]]
+  if o not in model[submodel][keya]:
+    keyb = '-1'
+  else:
+    keyb = o
+  return( model[submodel][keya][keyb] )
 
 def E(corpus,modelkeys):
   #updates model expectations based on corpus
@@ -335,7 +350,23 @@ for obs in testdata:
         final_outcomes[o] *= model[('ref_topic','pro')][obs['ref_topic']][o]
       else:
         final_outcomes[o] *= model[('ref_topic','pro')][obs['ref_topic']]['-1']
-
+    if USE_BEST:
+      final_outcomes[o] *= calc_likelihood(obs,model,('ref_syncat','pro'),o)
+      final_outcomes[o] *= calc_likelihood(obs,model,('bi_info','pro'),o)
+      final_outcomes[o] *= calc_likelihood(obs,model,('sent_info','pro'),o)
+      #if o in model[('ref_syncat','pro')][obs['ref_syncat']]:
+      #  final_outcomes[o] *= model[('ref_syncat','pro')][obs['ref_syncat']][o]
+      #else:
+      #  final_outcomes[o] *= model[('ref_syncat','pro')][obs['ref_syncat']]['-1']
+      #if o in model[('bi_info','pro')][obs['bi_info']]:
+      #  final_outcomes[o] *= model[('bi_info','pro')][obs['bi_info']][o]
+      #else:
+      #  final_outcomes[o] *= model[('bi_info','pro')][obs['bi_info']]['-1']
+      #if o in model[('sent_info','pro')][obs['sent_info']]:
+      #  final_outcomes[o] *= model[('sent_info','pro')][obs['sent_info']][o]
+      #else:
+      #  final_outcomes[o] *= model[('sent_info','pro')][obs['sent_info']]['-1']
+        
   #for o in final_outcomes:
   #  if o in model[('sent_info','pro')][obs['sent_info']]:
   #    final_outcomes[o] *= model[('sent_info','pro')][obs['sent_info']][o]
